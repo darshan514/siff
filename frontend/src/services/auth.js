@@ -114,42 +114,25 @@ export const apiGetCurrentUser = async () => {
   }
 };
 
-export const apiRegisterFace = async (officerId, embeddings) => {
-  try {
-    const response = await apiClient.post('/api/register-face', {
-      officerId,
-      embeddings
-    });
-    return response.data;
-  } catch (err) {
-    console.error('Face registration error:', err);
-    throw new Error(err.response?.data?.detail || 'Failed to register biometric profile.');
-  }
+export const apiRegisterFaceImage = async (officerId, imageBlob) => {
+  const formData = new FormData();
+  formData.append('officerId', officerId);
+  formData.append('image', imageBlob, 'face.jpg');
+  const response = await apiClient.post('/api/register-face', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  });
+  return response.data;
 };
 
-export const apiLoginFace = async (liveEmbeddings) => {
-  if (!liveEmbeddings || liveEmbeddings.length === 0) {
-    throw new Error('No face detected in camera target. Please position your face inside the target.');
+export const apiLoginFaceImage = async (imageBlob) => {
+  const formData = new FormData();
+  formData.append('image', imageBlob, 'face.jpg');
+  const response = await apiClient.post('/api/login-face', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  });
+  if (response.data?.token) {
+    localStorage.setItem('sif_auth_token', response.data.token);
   }
-
-  try {
-    const response = await apiClient.post('/api/login-face', {
-      embeddings: liveEmbeddings
-    });
-    
-    const user = formatUserProfile(response.data.user);
-    const token = response.data.token;
-    
-    localStorage.setItem('sif_auth_token', token);
-    
-    return {
-      status: 'success',
-      user: user,
-      token: token,
-      similarity: response.data.similarity
-    };
-  } catch (err) {
-    console.error('Face login error:', err);
-    throw new Error(err.response?.data?.detail || 'Face Not Recognized.');
-  }
+  return formatUserProfile(response.data.user);
 };
+

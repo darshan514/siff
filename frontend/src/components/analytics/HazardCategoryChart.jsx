@@ -1,4 +1,5 @@
 import React from 'react';
+import { useLanguage } from '../../context/LanguageContext';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { BarChart3 } from 'lucide-react';
 
@@ -11,6 +12,7 @@ const DEFAULT_CATEGORY_DATA = [
 ];
 
 export const HazardCategoryChart = ({ data }) => {
+  const { t } = useLanguage();
   const chartData = (data && data.length > 0) ? data : DEFAULT_CATEGORY_DATA;
 
   return (

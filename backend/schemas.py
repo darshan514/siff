@@ -41,13 +41,6 @@ class Token(BaseModel):
     token: str
     user: Any # Will be formatted UserResponse dict to match frontend expectations
 
-class RegisterFaceRequest(BaseModel):
-    officerId: str
-    embeddings: List[float]
-
-class LoginFaceRequest(BaseModel):
-    embeddings: List[float]
-
 
 # Report Schemas
 class ReportCreate(BaseModel):
@@ -78,6 +71,10 @@ class AiAnalysisResponse(BaseModel):
 class ReportResponse(BaseModel):
     id: str
     user_id: Optional[str] = None
+    reporter_name: Optional[str] = None
+    employee_id: Optional[str] = None
+    department: Optional[str] = None
+    company: Optional[str] = None
     title: str
     location: Optional[str] = None
     narrative: str

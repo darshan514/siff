@@ -5,7 +5,10 @@ import {
   apiSaveReportWithAI,
   apiUpdateReportStatus,
   apiDeleteReport,
+  formatReportRecord,
 } from '../services/reports';
+
+import { analyzeHazardInsights } from '../utils/hazardAnalyzer';
 
 const PredictionContext = createContext();
 
@@ -15,39 +18,79 @@ export const PredictionProvider = ({ children }) => {
   const [isLoadingReports, setIsLoadingReports] = useState(false);
 
   // Load live reports from Database whenever user or role changes
-  const refreshReports = useCallback(async () => {
+  const refreshReports = useCallback(async (silent = false) => {
     if (!user) {
       setHistory([]);
       return;
     }
-    setIsLoadingReports(true);
+    if (!silent) setIsLoadingReports(true);
     try {
       const records = await apiFetchReports(user.id, isSafetyOfficer);
       setHistory(records || []);
     } catch (err) {
       console.warn('Error loading reports from database:', err);
     } finally {
-      setIsLoadingReports(false);
+      if (!silent) setIsLoadingReports(false);
     }
   }, [user, isSafetyOfficer]);
 
   useEffect(() => {
-    refreshReports();
-  }, [refreshReports]);
+    refreshReports(false);
+
+    if (!user) return;
+
+    // Live sync polling every 4 seconds to sync status changes and new reports seamlessly
+    const interval = setInterval(() => {
+      refreshReports(true);
+    }, 4000);
+
+    return () => clearInterval(interval);
+  }, [refreshReports, user]);
 
   // Add new prediction report & persist to Database
   const addPrediction = async (newPred) => {
+    const reportText = newPred.report || newPred.narrative || '';
+    const insights = analyzeHazardInsights(reportText, newPred.prediction);
+
     const aiData = {
       prediction: newPred.prediction,
       confidence: newPred.confidence,
-      hazardCategory: newPred.hazardCategory || 'General Safety',
-      recommendedActions: newPred.recommendedActions || [],
+      hazardCategory: newPred.hazardCategory || insights.primaryCategory || 'General Safety',
+      recommendedActions: newPred.recommendedActions || insights.recommendedActions || [],
       executionTimeMs: newPred.executionTimeMs || 135,
     };
 
-    const savedRecord = await apiSaveReportWithAI(newPred, aiData, user);
-    setHistory(prev => [savedRecord, ...prev]);
-    return savedRecord;
+    if (!user) {
+      // Guest mode - save to local session history only
+      const mockRecord = formatReportRecord({ 
+        report: newPred.report || newPred.narrative,
+        prediction: newPred.prediction,
+        confidence: newPred.confidence,
+        hazardCategory: aiData.hazardCategory,
+        recommendedActions: aiData.recommendedActions,
+        executionTimeMs: aiData.executionTimeMs,
+      });
+      setHistory(prev => [mockRecord, ...prev]);
+      return mockRecord;
+    }
+
+    try {
+      const savedRecord = await apiSaveReportWithAI(newPred, aiData, user);
+      setHistory(prev => [savedRecord, ...prev]);
+      return savedRecord;
+    } catch (err) {
+      console.warn("Failed to save report to backend, saving locally for this session.", err);
+      const mockRecord = formatReportRecord({ 
+        report: newPred.report || newPred.narrative,
+        prediction: newPred.prediction,
+        confidence: newPred.confidence,
+        hazardCategory: aiData.hazardCategory,
+        recommendedActions: aiData.recommendedActions,
+        executionTimeMs: aiData.executionTimeMs,
+      });
+      setHistory(prev => [mockRecord, ...prev]);
+      return mockRecord;
+    }
   };
 
   // Update report status in Database

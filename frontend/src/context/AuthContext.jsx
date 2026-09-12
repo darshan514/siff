@@ -2,10 +2,10 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import {
   apiLogin,
   apiRegister,
-  apiRegisterFace,
-  apiLoginFace,
   apiLogout,
   apiGetCurrentUser,
+  apiRegisterFaceImage,
+  apiLoginFaceImage,
 } from '../services/auth';
 
 const AuthContext = createContext();
@@ -30,20 +30,26 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     let mounted = true;
 
-    const initAuth = async () => {
-      try {
-        const fetchedUser = await apiGetCurrentUser();
-        if (mounted && fetchedUser) {
-          setUser(fetchedUser);
-          // Token is managed in localStorage by auth.js, just keep state in sync
-          setToken(localStorage.getItem('sif_auth_token'));
+      const initAuth = async () => {
+        try {
+          const fetchedUser = await apiGetCurrentUser();
+          if (mounted && fetchedUser) {
+            setUser(fetchedUser);
+            // Token is managed in localStorage by auth.js, just keep state in sync
+            setToken(localStorage.getItem('sif_auth_token'));
+          }
+        } catch (err) {
+          console.warn('Error fetching session on init, clearing invalid session:', err);
+          if (mounted) {
+            setUser(null);
+            setToken(null);
+            localStorage.removeItem('sif_auth_user');
+            localStorage.removeItem('sif_auth_token');
+          }
+        } finally {
+          if (mounted) setIsLoading(false);
         }
-      } catch (err) {
-        console.warn('Error fetching session on init:', err);
-      } finally {
-        if (mounted) setIsLoading(false);
-      }
-    };
+      };
 
     initAuth();
 
@@ -92,32 +98,6 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const registerFace = async (officerId, embeddings) => {
-    setIsLoading(true);
-    try {
-      const res = await apiRegisterFace(officerId, embeddings);
-      if (user) {
-        const updatedUser = { ...user, isFaceRegistered: true };
-        setUser(updatedUser);
-      }
-      return res;
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const loginWithFace = async (liveEmbeddings) => {
-    setIsLoading(true);
-    try {
-      const res = await apiLoginFace(liveEmbeddings);
-      setUser(res.user);
-      setToken(res.token);
-      return res.user;
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   const logout = async () => {
     setIsLoading(true);
     try {
@@ -128,6 +108,30 @@ export const AuthProvider = ({ children }) => {
       localStorage.removeItem('sif_auth_token');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const registerFaceImage = async (officerId, imageBlob) => {
+    try {
+      await apiRegisterFaceImage(officerId, imageBlob);
+      if (user) {
+        setUser({ ...user, isFaceRegistered: true });
+      }
+      return true;
+    } catch (err) {
+      console.error("Face registration failed:", err);
+      throw err;
+    }
+  };
+
+  const loginWithFaceImage = async (imageBlob) => {
+    try {
+      const profile = await apiLoginFaceImage(imageBlob);
+      setUser(profile);
+      return profile;
+    } catch (err) {
+      console.error("Face login failed:", err);
+      throw err;
     }
   };
 
@@ -146,9 +150,9 @@ export const AuthProvider = ({ children }) => {
         isLoading,
         login,
         register,
-        registerFace,
-        loginWithFace,
         logout,
+        registerFaceImage,
+        loginWithFaceImage,
       }}
     >
       {children}

@@ -2,7 +2,7 @@ import uuid
 from sqlalchemy import Column, String, Boolean, Float, Integer, ForeignKey, DateTime
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
-from .database import Base
+from database import Base
 
 def generate_uuid():
     return str(uuid.uuid4())
@@ -14,14 +14,14 @@ class User(Base):
     full_name = Column(String, index=True)
     email = Column(String, unique=True, index=True)
     password_hash = Column(String)
-    role = Column(String, default="employee")  # 'employee' or 'safety_officer'
+    role = Column(String, default="employee")
     employee_id = Column(String)
     department = Column(String, nullable=True)
     designation = Column(String, nullable=True)
     company = Column(String, nullable=True)
     phone = Column(String, nullable=True)
     face_registered = Column(Boolean, default=False)
-    face_embeddings = Column(String, nullable=True) # Stored as JSON string
+    face_embeddings = Column(String, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     reports = relationship("Report", back_populates="user")
@@ -31,8 +31,9 @@ class Report(Base):
     __tablename__ = "reports"
 
     id = Column(String, primary_key=True, index=True, default=generate_uuid)
-    user_id = Column(String, ForeignKey("users.id"))
+    user_id = Column(String, ForeignKey("users.id"), nullable=True)
     title = Column(String)
+    department = Column(String, nullable=True)
     location = Column(String, nullable=True)
     narrative = Column(String)
     prediction = Column(String)
@@ -51,7 +52,8 @@ class AiAnalysis(Base):
     id = Column(String, primary_key=True, index=True, default=generate_uuid)
     report_id = Column(String, ForeignKey("reports.id"))
     hazard_category = Column(String, nullable=True)
-    recommended_actions = Column(String, nullable=True) # JSON list
+    iogp_rule = Column(String, nullable=True)
+    recommended_actions = Column(String, nullable=True) # Stored as JSON string
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     report = relationship("Report", back_populates="ai_analysis")

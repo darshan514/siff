@@ -1,6 +1,9 @@
 import React, { useState } from 'react';
 import { analyzeHazardInsights } from '../../utils/hazardAnalyzer';
 import { generateIncidentReportPDF } from '../../utils/pdfGenerator';
+import XAINarrativeHighlighter from './XAINarrativeHighlighter';
+import SmartRecommendationsCard from './SmartRecommendationsCard';
+import { useLanguage } from '../../context/LanguageContext';
 import { motion } from 'framer-motion';
 
 const PPE_ICONS = {
@@ -20,12 +23,13 @@ const PPE_ICONS = {
 };
 
 export const AIInsightsCard = ({ result, reportText, onReset }) => {
+  const { t, lang } = useLanguage();
   const [copied, setCopied] = useState(false);
   const [pdfGenerating, setPdfGenerating] = useState(false);
 
   if (!result) return null;
 
-  const insights = analyzeHazardInsights(reportText, result.prediction);
+  const insights = analyzeHazardInsights(reportText, result.prediction, lang);
   const isSIF = result.prediction === 'SIF';
   const confidence = result.confidence || 0;
 
@@ -38,11 +42,27 @@ export const AIInsightsCard = ({ result, reportText, onReset }) => {
   };
 
   const handleCopy = () => {
-    const textToCopy = `[SIF AI Incident Assessment]\nPrediction: ${result.prediction}\nConfidence: ${confidence.toFixed(2)}%\nRisk Level: ${insights.riskLevel}\nHazard Category: ${insights.primaryCategory}\nLife Saving Rule: ${insights.lifeSavingRule}\nAI Explanation: ${insights.explanation}\nKeywords: ${insights.uniqueKeywords.join(', ')}\nRecommended PPE: ${insights.recommendedPPE.join(', ')}\nImmediate Actions: ${insights.recommendedActions.join('; ')}\nNarrative: "${reportText}"`;
+    const textToCopy = `[SIF AI Incident Assessment]\nPrediction: ${result.prediction}\nConfidence: ${confidence.toFixed(2)}%\nRisk Level: ${insights.riskLevel}\nHazard Category: ${insights.primaryCategory}\nIOGP Life Saving Rule: ${insights.lifeSavingRule}\nAI Explanation: ${insights.explanation}\nKeywords: ${insights.uniqueKeywords.join(', ')}\nRecommended PPE: ${insights.recommendedPPE.join(', ')}\nImmediate Actions: ${insights.recommendedActions.join('; ')}\nNarrative: "${reportText}"`;
     navigator.clipboard.writeText(textToCopy);
     setCopied(true);
     setTimeout(() => setCopied(false), 2500);
   };
+
+  const isUnrelated = result.prediction === 'Unrelated Input' || result.prediction === 'Unrelated';
+
+  if (isUnrelated) {
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 15 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="w-full bg-white/70 rounded-3xl border border-white/90 shadow-sm p-8 backdrop-blur-xl text-center space-y-4"
+      >
+        <span className="material-symbols-outlined text-4xl text-slate-400">info</span>
+        <h3 className="text-lg font-extrabold text-slate-800">{t('invalid_obs_title', 'Invalid Observation')}</h3>
+        <p className="text-sm font-medium text-slate-600 max-w-md mx-auto">{t('invalid_obs_desc', 'This is not a valid safety observation. Please provide a valid safety-related query or observation.')}</p>
+      </motion.div>
+    );
+  }
 
   return (
     <motion.div
@@ -58,86 +78,85 @@ export const AIInsightsCard = ({ result, reportText, onReset }) => {
           </div>
           <div>
             <h3 className="font-extrabold text-lg text-slate-900">
-              AI Incident Risk Assessment
+              {t('xai_explanation_title', 'AI Incident Risk Assessment & Intelligence')}
             </h3>
             <p className="text-xs text-slate-500 font-medium">
-              Enterprise DistilBERT Intelligence Output
+              {t('home_feature_1_title', 'DistilBERT Multi-Factor Precursor Analysis')}
             </p>
           </div>
         </div>
 
-        <span className={`px-4 py-1.5 rounded-full text-xs font-extrabold border uppercase tracking-wider ${
-          isSIF ? 'bg-red-500/10 text-red-700 border-red-300' : 'bg-emerald-500/10 text-emerald-700 border-emerald-300'
-        }`}>
-          {isSIF ? 'High SIF Risk' : 'Low SIF Risk'}
-        </span>
+        <div className="flex items-center gap-2">
+          <span className={`px-4 py-1.5 rounded-full text-xs font-extrabold border uppercase tracking-wider ${
+            isSIF
+              ? 'bg-red-500/10 text-red-700 border-red-300'
+              : 'bg-emerald-500/10 text-emerald-700 border-emerald-300'
+          }`}>
+            {isSIF ? t('sif_potential', 'High SIF Risk') : t('non_sif', 'Low SIF Risk')}
+          </span>
+
+          <button
+            onClick={handleCopy}
+            className="p-2 rounded-xl bg-white/80 border border-slate-200 text-slate-600 hover:text-slate-900 transition-colors shadow-sm text-xs font-bold flex items-center gap-1"
+          >
+            <span className="material-symbols-outlined text-base">{copied ? 'check' : 'content_copy'}</span>
+            <span className="hidden sm:inline">{copied ? t('copied', 'Copied') : t('copy', 'Copy')}</span>
+          </button>
+        </div>
       </div>
 
       {/* Metrics Row */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         <div className="p-4 rounded-2xl bg-white/80 border border-slate-200/60 shadow-sm space-y-1">
-          <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Risk Level</span>
+          <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">{t('filter_status', 'Risk Level')}</span>
           <p className={`font-extrabold text-base ${isSIF ? 'text-red-600' : 'text-emerald-600'}`}>
-            {insights.riskLevel} Risk
+            {insights.riskLevel}
           </p>
         </div>
 
         <div className="p-4 rounded-2xl bg-white/80 border border-slate-200/60 shadow-sm space-y-1">
-          <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Hazard Category</span>
+          <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">{t('iogp_rule', 'IOGP Life Saving Rule')}</span>
+          <p className="font-extrabold text-xs text-slate-900 truncate flex items-center gap-1.5 mt-0.5">
+            <span className="material-symbols-outlined text-sm text-[#FF5E3A]">{insights.iogpRule?.icon || 'verified_user'}</span>
+            <span>{insights.lifeSavingRule}</span>
+          </p>
+        </div>
+
+        <div className="p-4 rounded-2xl bg-white/80 border border-slate-200/60 shadow-sm space-y-1">
+          <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">{t('department', 'Department Domain')}</span>
           <p className="font-extrabold text-base text-slate-900 truncate">
             {insights.primaryCategory}
           </p>
         </div>
 
         <div className="p-4 rounded-2xl bg-white/80 border border-slate-200/60 shadow-sm space-y-1">
-          <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Life Saving Rule</span>
-          <p className="font-extrabold text-base text-slate-900 truncate">
-            {insights.lifeSavingRule}
-          </p>
-        </div>
-
-        <div className="p-4 rounded-2xl bg-white/80 border border-slate-200/60 shadow-sm space-y-1">
-          <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Confidence</span>
+          <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">{t('confidence_score', 'AI Confidence')}</span>
           <p className="font-extrabold text-base text-slate-900">
             {confidence.toFixed(1)}%
           </p>
         </div>
       </div>
 
-      {/* AI Explanation */}
+      {/* AI Contextual Explanation */}
       <div className="space-y-2">
         <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
-          AI Contextual Explanation
+          {t('xai_explanation_title', 'AI Contextual Assessment')}
         </span>
         <p className="p-5 rounded-2xl bg-slate-900 text-white text-sm leading-relaxed font-medium shadow-md border border-slate-800">
           {insights.explanation}
         </p>
       </div>
 
-      {/* Hazard Keywords */}
-      {insights.uniqueKeywords.length > 0 && (
-        <div className="space-y-3">
-          <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
-            Detected Precursor Keywords
-          </span>
-          <div className="flex flex-wrap gap-2">
-            {insights.uniqueKeywords.map((word, idx) => (
-              <span
-                key={idx}
-                className="px-3.5 py-1.5 rounded-xl text-xs font-extrabold border bg-amber-500/10 text-amber-900 border-amber-300 flex items-center gap-1.5 shadow-sm"
-              >
-                <span className="material-symbols-outlined text-sm text-amber-600">label</span>
-                <span>{word}</span>
-              </span>
-            ))}
-          </div>
-        </div>
-      )}
+      {/* Explainable AI (XAI) Token Highlighter */}
+      <XAINarrativeHighlighter narrative={reportText} prediction={result.prediction} />
 
-      {/* Recommended PPE */}
+      {/* Smart Recommendations Card */}
+      <SmartRecommendationsCard insights={insights} />
+
+      {/* Required PPE */}
       <div className="space-y-3">
         <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
-          Required Personal Protective Equipment (PPE)
+          {t('wf_step_4_desc', 'Required Personal Protective Equipment (PPE)')}
         </span>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {insights.recommendedPPE.map((item, idx) => {
@@ -147,87 +166,32 @@ export const AIInsightsCard = ({ result, reportText, onReset }) => {
                 <div className="w-9 h-9 rounded-xl bg-slate-900 text-white flex items-center justify-center">
                   <span className="material-symbols-outlined text-xl">{iconName}</span>
                 </div>
-                <span className="text-xs font-bold text-slate-800">{item}</span>
+                <span className="text-xs font-bold text-slate-800">
+                  {item === 'Safety Helmet' ? t('ppe_safety_helmet', 'Safety Helmet') :
+                   item === 'Full Body Harness' ? t('ppe_full_body_harness', 'Full Body Harness') :
+                   item === 'Arc Flash Shield' ? t('ppe_arc_flash_shield', 'Arc Flash Shield') :
+                   item === 'H2S Gas Detector' ? t('ppe_h2s_detector', 'H2S Gas Detector') :
+                   item === 'Safety Shoes' ? t('ppe_safety_shoes', 'Safety Shoes') : item}
+                </span>
               </div>
             );
           })}
         </div>
       </div>
 
-      {/* Immediate Actions Checklist */}
-      <div className="space-y-3">
-        <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
-          Immediate Required Safety Actions
-        </span>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {insights.recommendedActions.map((action, idx) => (
-            <div key={idx} className="p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-200 flex items-center gap-3 text-emerald-950 shadow-sm">
-              <div className="w-7 h-7 rounded-full bg-emerald-600 text-white flex items-center justify-center text-xs font-bold shrink-0">
-                ✓
-              </div>
-              <span className="text-xs font-bold">{action}</span>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Possible Consequences */}
-      <div className="space-y-3">
-        <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
-          Potential Risk Consequences
-        </span>
-        <div className="flex flex-wrap gap-2">
-          {insights.possibleConsequences.map((item, idx) => (
-            <span
-              key={idx}
-              className={`px-3 py-1.5 rounded-full text-xs font-bold border flex items-center gap-1.5 ${
-                isSIF ? 'bg-red-500/10 text-red-800 border-red-300' : 'bg-slate-100 text-slate-700 border-slate-300'
-              }`}
-            >
-              <span className="material-symbols-outlined text-sm">{isSIF ? 'warning' : 'info'}</span>
-              <span>{item}</span>
-            </span>
-          ))}
-        </div>
-      </div>
-
-      {/* Action Buttons */}
-      <div className="pt-4 border-t border-slate-200/60 flex flex-wrap gap-4 items-center justify-between">
-        <div className="flex flex-wrap gap-3">
-          <button
-            type="button"
-            onClick={handleDownloadPDF}
-            disabled={pdfGenerating}
-            className="px-6 py-3 rounded-full text-xs font-extrabold text-white bg-[#FF5E3A] hover:bg-[#e04f2e] transition-all shadow-md flex items-center gap-2"
-          >
-            <span className="material-symbols-outlined text-base">picture_as_pdf</span>
-            <span>{pdfGenerating ? 'Generating PDF...' : 'Download PDF Report'}</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={handleCopy}
-            className="px-5 py-3 rounded-full text-xs font-bold text-slate-800 bg-white border border-slate-300 hover:bg-slate-50 transition-colors shadow-sm flex items-center gap-2"
-          >
-            <span className="material-symbols-outlined text-base">{copied ? 'check' : 'content_copy'}</span>
-            <span>{copied ? 'Report Copied!' : 'Copy Summary'}</span>
-          </button>
-        </div>
-
-        {onReset && (
-          <button
-            type="button"
-            onClick={onReset}
-            className="px-5 py-3 rounded-full text-xs font-bold text-slate-600 bg-transparent hover:bg-slate-200/60 transition-colors flex items-center gap-1.5"
-          >
-            <span className="material-symbols-outlined text-base">restart_alt</span>
-            <span>Analyze Another Report</span>
-          </button>
-        )}
+      {/* PDF Export Button */}
+      <div className="pt-4 border-t border-slate-200/60 flex justify-end">
+        <button
+          onClick={handleDownloadPDF}
+          disabled={pdfGenerating}
+          className="bg-slate-900 hover:bg-slate-800 text-white px-6 py-2.5 rounded-2xl text-xs font-extrabold flex items-center gap-2 shadow-md transition-all disabled:opacity-50"
+        >
+          <span className="material-symbols-outlined text-base">picture_as_pdf</span>
+          <span>{pdfGenerating ? t('download_pdf', 'Generating PDF...') : t('download_pdf', 'Download Official PDF Report')}</span>
+        </button>
       </div>
     </motion.div>
   );
 };
 
 export default AIInsightsCard;
-

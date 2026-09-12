@@ -4,12 +4,14 @@ import { useAuth } from '../context/AuthContext';
 import { usePredictions } from '../context/PredictionContext';
 import HistoryTable from '../components/history/HistoryTable';
 import StatCard from '../components/common/StatCard';
+import { useLanguage } from '../context/LanguageContext';
 import { motion } from 'framer-motion';
 
 export const EmployeeDashboard = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { history, deletePrediction } = usePredictions();
+  const { t } = useLanguage();
 
   const myHistory = history;
 
@@ -28,15 +30,15 @@ export const EmployeeDashboard = () => {
         <div className="space-y-2">
           <div className="inline-flex items-center gap-2 bg-[#FF5E3A]/10 border border-[#FF5E3A]/30 rounded-full px-4 py-1.5 text-xs font-bold text-[#FF5E3A]">
             <span className="material-symbols-outlined text-sm">engineering</span>
-            <span>Worker Safety Hub</span>
+            <span>{t('worker_hub', 'Worker Safety Hub')} — {t('oil_india_hq', 'Oil India Limited')}</span>
           </div>
 
           <h1 className="font-display-xl text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight">
-            Welcome back, {user?.name || 'Safety Representative'}
+            {t('welcome_back', 'Welcome back')}, {user?.name || 'Field Representative'}
           </h1>
 
           <p className="text-sm text-slate-600 font-medium max-w-xl">
-            Department: <span className="font-bold text-slate-900">{user?.department || 'Field Maintenance'}</span> | Employee ID: <span className="font-mono font-bold text-slate-900">{user?.employeeId || 'EMP-9042'}</span>
+            {t('department', 'Department')}: <span className="font-bold text-slate-900">{user?.department || 'Field Maintenance'}</span> | {t('employee_id', 'Employee ID')}: <span className="font-mono font-bold text-slate-900">{user?.employeeId || 'EMP-9042'}</span>
           </p>
         </div>
 
@@ -47,7 +49,7 @@ export const EmployeeDashboard = () => {
             className="px-6 py-3.5 rounded-full bg-[#FF5E3A] hover:bg-[#ff4820] text-white font-extrabold text-xs shadow-lg transition-all flex items-center gap-2 shrink-0"
           >
             <span className="material-symbols-outlined text-base">add_alert</span>
-            <span>File & Predict Incident</span>
+            <span>{t('file_new_report', 'File & Predict Incident')}</span>
           </button>
 
           <button
@@ -56,7 +58,7 @@ export const EmployeeDashboard = () => {
             className="px-5 py-3.5 rounded-full bg-slate-900 hover:bg-slate-800 text-white font-extrabold text-xs shadow-md transition-all flex items-center gap-2 shrink-0"
           >
             <span className="material-symbols-outlined text-base">assignment</span>
-            <span>My Reports</span>
+            <span>{t('my_reports', 'My Reports')}</span>
           </button>
         </div>
       </div>
@@ -64,23 +66,23 @@ export const EmployeeDashboard = () => {
       {/* Metric Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
         <StatCard
-          title="My Total Observations"
+          title={t('total_reports', 'My Total Observations')}
           value={totalMyReports}
-          subtitle="Reports logged by you"
+          subtitle={t('reports_logged_by_you', 'Reports logged by you')}
           color="blue"
         />
 
         <StatCard
-          title="SIF Risk Precursors"
+          title={t('sif_precursors', 'SIF Risk Precursors')}
           value={mySifReports}
-          subtitle="High priority hazard logs"
+          subtitle={t('high_priority_hazard_logs', 'High priority hazard logs')}
           color="red"
         />
 
         <StatCard
-          title="Routine Observations"
+          title={t('low_risk_count', 'Routine Observations')}
           value={myNonSifReports}
-          subtitle="Low risk housekeeping"
+          subtitle={t('low_risk_housekeeping', 'Low risk housekeeping')}
           color="green"
         />
       </div>
@@ -90,13 +92,12 @@ export const EmployeeDashboard = () => {
         <div className="flex justify-between items-center">
           <h2 className="font-display-xl text-2xl font-extrabold text-slate-900 flex items-center gap-2">
             <span className="material-symbols-outlined text-[#FF5E3A]">history</span>
-            <span>My Observation History</span>
+            <span>{t('my_obs_history', 'My Observation History')}</span>
           </h2>
 
           <Link to="/predict" className="text-xs font-bold text-[#FF5E3A] hover:underline">
-            + File New Report
+            {t('file_new_report_btn', '+ File New Report')}
           </Link>
-
         </div>
 
         <HistoryTable
@@ -104,7 +105,6 @@ export const EmployeeDashboard = () => {
           onDelete={deletePrediction}
         />
       </div>
-
     </motion.div>
   );
 };

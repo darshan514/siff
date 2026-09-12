@@ -1,16 +1,36 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useLanguage } from '../context/LanguageContext';
 import { motion } from 'framer-motion';
+import FaceCapture from '../components/auth/FaceCapture';
+import Toast from '../components/common/Toast';
 
 export const LoginPage = () => {
   const navigate = useNavigate();
-  const { login, isLoading } = useAuth();
+  const { login, loginWithFaceImage, isLoading } = useAuth();
+  const { t } = useLanguage();
 
   const [activeRole, setActiveRole] = useState('worker'); // 'worker' or 'admin'
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [errorMsg, setErrorMsg] = useState(null);
+  const [showFaceLogin, setShowFaceLogin] = useState(false);
+  const [toastMsg, setToastMsg] = useState(null);
+  const [toastType, setToastType] = useState('success');
+
+  const handleFaceCapture = async (blob) => {
+    setErrorMsg(null);
+    try {
+      await loginWithFaceImage(blob);
+      setToastMsg('Face login successful!');
+      setToastType('success');
+      setTimeout(() => navigate('/officer-dashboard'), 1500);
+    } catch (err) {
+      setErrorMsg(err.message || 'Face login failed. Try email/password.');
+      setShowFaceLogin(false);
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -43,10 +63,10 @@ export const LoginPage = () => {
             <span className="material-symbols-outlined text-2xl">lock</span>
           </div>
           <h1 className="font-display-xl text-2xl font-extrabold text-slate-900">
-            Enterprise Portal Login
+            {t('login_title', 'Sign In to SIF.AI')}
           </h1>
           <p className="text-xs text-slate-500 font-medium">
-            Sign in to access your SIF AI safety workbench
+            {t('login_subtitle', 'Enter your credentials to access your safety dashboard.')}
           </p>
         </div>
 
@@ -60,7 +80,7 @@ export const LoginPage = () => {
             }`}
           >
             <span className="material-symbols-outlined text-base">engineering</span>
-            <span>Employee</span>
+            <span>{t('worker', 'Field Observer')}</span>
           </button>
 
           <button
@@ -71,7 +91,7 @@ export const LoginPage = () => {
             }`}
           >
             <span className="material-symbols-outlined text-base">shield_person</span>
-            <span>Safety Officer</span>
+            <span>{t('safety_officer', 'Safety Officer')}</span>
           </button>
         </div>
 
@@ -83,89 +103,84 @@ export const LoginPage = () => {
           </div>
         )}
 
-        {/* Biometric Face Recognition Button for Safety Officers */}
-        {activeRole === 'admin' && (
-          <div className="p-4 rounded-2xl bg-[#FF5E3A]/10 border border-[#FF5E3A]/30 text-center space-y-3">
-            <div className="flex items-center justify-center gap-2 text-xs font-extrabold text-slate-900">
-              <span className="material-symbols-outlined text-[#FF5E3A]">face_3</span>
-              <span>Biometric Security Authentication</span>
-            </div>
-
-            <button
-              type="button"
-              onClick={() => navigate('/face-login')}
-              className="w-full py-3 rounded-full bg-slate-900 hover:bg-slate-800 text-white font-extrabold text-xs shadow-md transition-all flex items-center justify-center gap-2"
-            >
-              <span className="material-symbols-outlined text-base">center_focus_strong</span>
-              <span>Login using Face Recognition</span>
-            </button>
-          </div>
-        )}
-
-        {/* Email & Password Login Form */}
-        <form onSubmit={handleSubmit} className="space-y-4 text-xs font-medium">
+        {/* Credentials Form */}
+        <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-1">
-            <label className="font-bold text-slate-700 uppercase tracking-wider text-[10px]">
-              Work Email Address
+            <label className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500">
+              {t('email_label', 'Email Address')}
             </label>
-            <div className="relative">
-              <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-base">
-                mail
-              </span>
-              <input
-                type="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder={activeRole === 'admin' ? 'officer@sif.ai' : 'worker@sif.ai'}
-                className="w-full pl-10 pr-4 py-3 rounded-xl bg-white/80 border border-slate-200 text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#FF5E3A]/40 font-medium"
-              />
-            </div>
+            <input
+              type="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="e.g. observer@oilindia.in"
+              className="w-full px-4 py-3 rounded-2xl bg-white/80 border border-slate-200 text-slate-900 text-xs focus:outline-none focus:ring-2 focus:ring-[#FF5E3A]/40 font-medium"
+            />
           </div>
 
           <div className="space-y-1">
-            <div className="flex justify-between items-center">
-              <label className="font-bold text-slate-700 uppercase tracking-wider text-[10px]">
-                Password
+            <div className="flex items-center justify-between">
+              <label className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500">
+                {t('password_label', 'Password')}
               </label>
               <Link to="/forgot-password" className="text-[11px] font-bold text-[#FF5E3A] hover:underline">
-                Forgot password?
+                {t('forgot_password', 'Forgot?')}
               </Link>
             </div>
-            <div className="relative">
-              <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-base">
-                key
-              </span>
-              <input
-                type="password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                className="w-full pl-10 pr-4 py-3 rounded-xl bg-white/80 border border-slate-200 text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#FF5E3A]/40 font-medium"
-              />
-            </div>
+            <input
+              type="password"
+              required
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="••••••••"
+              className="w-full px-4 py-3 rounded-2xl bg-white/80 border border-slate-200 text-slate-900 text-xs focus:outline-none focus:ring-2 focus:ring-[#FF5E3A]/40 font-medium"
+            />
           </div>
 
           <button
             type="submit"
             disabled={isLoading}
-            className="w-full py-3.5 rounded-full bg-[#FF5E3A] hover:bg-[#ff4820] text-white font-extrabold text-xs shadow-md transition-all disabled:opacity-50 flex items-center justify-center gap-2 mt-2"
+            className="w-full py-3.5 rounded-full bg-[#FF5E3A] hover:bg-[#ff4820] text-white font-extrabold text-xs shadow-md transition-all flex items-center justify-center gap-2 disabled:opacity-50"
           >
-            <span>{isLoading ? 'Logging In...' : `Login as ${activeRole === 'admin' ? 'Safety Officer' : 'Employee'}`}</span>
-            <span className="material-symbols-outlined text-base">arrow_forward</span>
+            <span className="material-symbols-outlined text-base">login</span>
+            <span>{isLoading ? t('analyzing', 'Authenticating...') : t('login', 'Sign In')}</span>
           </button>
+          
+          {activeRole === 'admin' && (
+            <button
+              type="button"
+              onClick={() => setShowFaceLogin(true)}
+              className="w-full py-3.5 rounded-full bg-slate-900 hover:bg-slate-800 text-white font-extrabold text-xs shadow-md transition-all flex items-center justify-center gap-2"
+            >
+              <span className="material-symbols-outlined text-base">face</span>
+              <span>Login with Face Recognition</span>
+            </button>
+          )}
         </form>
 
-        {/* Footer Link */}
-        <div className="pt-4 border-t border-slate-200/60 text-center text-xs text-slate-500 font-medium">
-          Don't have an enterprise account?{' '}
-          <Link to="/register" className="font-bold text-[#FF5E3A] hover:underline">
-            Register here
+        {showFaceLogin && (
+          <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-slate-50 p-4">
+            <div className="bg-white rounded-3xl p-6 w-full max-w-sm relative">
+              <button
+                onClick={() => setShowFaceLogin(false)}
+                className="absolute top-4 right-4 text-slate-400 hover:text-slate-600"
+              >
+                <span className="material-symbols-outlined">close</span>
+              </button>
+              <FaceCapture onCapture={handleFaceCapture} isLogin={true} />
+            </div>
+          </div>
+        )}
+
+        <div className="pt-2 text-center text-xs text-slate-500 font-medium">
+          Don't have an account?{' '}
+          <Link to="/register" className="font-extrabold text-[#FF5E3A] hover:underline">
+            {t('register', 'Register Now')}
           </Link>
         </div>
-
       </div>
+    {toastMsg && <Toast message={toastMsg} type={toastType} onClose={() => setToastMsg(null)} />}
     </motion.div>
   );
 };

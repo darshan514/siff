@@ -2,14 +2,21 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { usePredictions } from '../context/PredictionContext';
+import { useLanguage } from '../context/LanguageContext';
 import { motion } from 'framer-motion';
+import FaceCapture from '../components/auth/FaceCapture';
+import Toast from '../components/common/Toast';
 
 export const ProfilePage = () => {
   const navigate = useNavigate();
-  const { user, setUser, isSafetyOfficer, logout } = useAuth();
+  const { user, setUser, isSafetyOfficer, logout, registerFaceImage } = useAuth();
   const { history } = usePredictions();
+  const { t } = useLanguage();
 
   const [isEditing, setIsEditing] = useState(false);
+  const [isEnrolling, setIsEnrolling] = useState(false);
+  const [toastMsg, setToastMsg] = useState(null);
+  const [toastType, setToastType] = useState('success');
   const [name, setName] = useState(user?.name || '');
   const [department, setDepartment] = useState(user?.department || '');
   const [phone, setPhone] = useState(user?.phone || '');
@@ -22,6 +29,15 @@ export const ProfilePage = () => {
     e.preventDefault();
     setUser({ ...user, name, department, phone });
     setIsEditing(false);
+  };
+
+  const handleEnrollment = async (blob) => {
+    try {
+      await registerFaceImage(user.officerId || user.employeeId || user.id, blob);
+      setIsEnrolling(false);
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   return (
@@ -63,7 +79,7 @@ export const ProfilePage = () => {
           className="px-5 py-2.5 rounded-full bg-white border border-red-200 text-red-600 hover:bg-red-50 font-bold text-xs shadow-sm transition-all flex items-center gap-1.5"
         >
           <span className="material-symbols-outlined text-base">logout</span>
-          <span>Logout</span>
+          <span>{t('logout', 'Logout')}</span>
         </button>
       </div>
 
@@ -72,7 +88,7 @@ export const ProfilePage = () => {
         <div className="flex justify-between items-center border-b border-slate-200/60 pb-4">
           <h3 className="font-extrabold text-lg text-slate-900 flex items-center gap-2">
             <span className="material-symbols-outlined text-[#FF5E3A]">badge</span>
-            <span>Enterprise Identity Details</span>
+            <span>{t('profile', 'User Profile')}</span>
           </h3>
 
           <button
@@ -80,7 +96,7 @@ export const ProfilePage = () => {
             onClick={() => setIsEditing(!isEditing)}
             className="px-4 py-1.5 rounded-full text-xs font-bold bg-white border border-slate-300 hover:bg-slate-50 text-slate-800 shadow-sm"
           >
-            {isEditing ? 'Cancel Edit' : 'Edit Profile'}
+            {isEditing ? t('close', 'Cancel Edit') : t('profile', 'Edit Profile')}
           </button>
         </div>
 
@@ -88,7 +104,7 @@ export const ProfilePage = () => {
           <form onSubmit={handleSave} className="space-y-4 text-xs font-medium">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1">
-                <label className="font-bold text-slate-700 uppercase tracking-wider text-[10px]">Full Name</label>
+                <label className="font-bold text-slate-700 uppercase tracking-wider text-[10px]">{t('full_name_label', 'Full Name')}</label>
                 <input
                   type="text"
                   required
@@ -99,7 +115,7 @@ export const ProfilePage = () => {
               </div>
 
               <div className="space-y-1">
-                <label className="font-bold text-slate-700 uppercase tracking-wider text-[10px]">Department</label>
+                <label className="font-bold text-slate-700 uppercase tracking-wider text-[10px]">{t('department_label', 'Department')}</label>
                 <input
                   type="text"
                   required
@@ -131,13 +147,13 @@ export const ProfilePage = () => {
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 text-xs">
             <div className="p-4 rounded-2xl bg-white/80 border border-slate-200/60 space-y-1">
-              <span className="text-slate-500 font-bold uppercase tracking-wider text-[10px]">Identity Role</span>
-              <p className="font-extrabold text-sm text-slate-900">{isSafetyOfficer ? 'Safety Officer' : 'Employee'}</p>
+              <span className="text-slate-500 font-bold uppercase tracking-wider text-[10px]">{t('role_label', 'Identity Role')}</span>
+              <p className="font-extrabold text-sm text-slate-900">{isSafetyOfficer ? t('safety_officer', 'Safety Officer') : t('worker', 'Field Observer')}</p>
             </div>
 
             <div className="p-4 rounded-2xl bg-white/80 border border-slate-200/60 space-y-1">
               <span className="text-slate-500 font-bold uppercase tracking-wider text-[10px]">
-                {isSafetyOfficer ? 'Safety Officer ID' : 'Employee ID'}
+                {isSafetyOfficer ? t('officer_id', 'Safety Officer ID') : t('employee_id', 'Employee ID')}
               </span>
               <p className="font-mono font-extrabold text-sm text-slate-900">
                 {isSafetyOfficer ? (user?.officerId || 'SO-108') : (user?.employeeId || 'EMP-9042')}
@@ -145,7 +161,7 @@ export const ProfilePage = () => {
             </div>
 
             <div className="p-4 rounded-2xl bg-white/80 border border-slate-200/60 space-y-1">
-              <span className="text-slate-500 font-bold uppercase tracking-wider text-[10px]">Department</span>
+              <span className="text-slate-500 font-bold uppercase tracking-wider text-[10px]">{t('department', 'Department')}</span>
               <p className="font-extrabold text-sm text-slate-900">{user?.department || 'Industrial Safety Ops'}</p>
             </div>
 
@@ -164,39 +180,56 @@ export const ProfilePage = () => {
             </div>
 
             {isSafetyOfficer && (
-              <div className="p-4 rounded-2xl bg-white/80 border border-slate-200/60 space-y-1">
-                <span className="text-slate-500 font-bold uppercase tracking-wider text-[10px]">Biometric Face Status</span>
-                <div className="flex items-center gap-2">
-                  <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-800 font-extrabold text-[11px] border border-emerald-300">
-                    ✓ Face Registered
+              <div className="p-4 rounded-2xl bg-white/80 border border-slate-200/60 space-y-2">
+                <span className="text-slate-500 font-bold uppercase tracking-wider text-[10px]">{t('biometrics', 'Biometrics')}</span>
+                <p className="font-extrabold text-sm text-slate-900 flex items-center gap-2">
+                  <span className={`material-symbols-outlined text-base ${user?.isFaceRegistered ? 'text-green-500' : 'text-slate-400'}`}>
+                    {user?.isFaceRegistered ? 'check_circle' : 'cancel'}
                   </span>
-                  <button
-                    onClick={() => navigate('/face-register')}
-                    className="text-[11px] font-bold text-[#FF5E3A] hover:underline"
-                  >
-                    Re-scan
-                  </button>
-                </div>
+                  {user?.isFaceRegistered ? 'Face Registered' : 'Not Registered'}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setIsEnrolling(true)}
+                  className="px-4 py-1.5 rounded-full text-xs font-bold bg-slate-900 text-white hover:bg-slate-800 shadow-sm"
+                >
+                  {user?.isFaceRegistered ? 'Re-scan Face' : 'Enroll Face'}
+                </button>
               </div>
             )}
           </div>
         )}
       </div>
 
+      {isEnrolling && (
+        <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-slate-50 p-4">
+          <div className="bg-white rounded-3xl p-6 w-full max-w-sm relative">
+            <button
+              onClick={() => setIsEnrolling(false)}
+              className="absolute top-4 right-4 text-slate-400 hover:text-slate-600"
+            >
+              <span className="material-symbols-outlined">close</span>
+            </button>
+            <FaceCapture onCapture={handleEnrollment} isLogin={false} />
+          </div>
+        </div>
+      )}
+
       {/* Activity Statistics Summary */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
         <div className="p-6 rounded-3xl bg-white/60 border border-white/80 backdrop-blur-xl shadow-sm space-y-2">
-          <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Activity Summary</span>
-          <p className="text-2xl font-extrabold text-slate-900">{totalReports} Reports Logged</p>
-          <p className="text-xs text-slate-600 font-medium">Total safety observations submitted across shifts</p>
+          <span className="text-xs font-bold uppercase tracking-wider text-slate-500">{t('my_reports', 'Activity Summary')}</span>
+          <p className="text-2xl font-extrabold text-slate-900">{totalReports} {t('total_reports', 'Reports Logged')}</p>
+          <p className="text-xs text-slate-600 font-medium">{t('submitted_all_shifts', 'Submitted across all shifts')}</p>
         </div>
 
         <div className="p-6 rounded-3xl bg-white/60 border border-white/80 backdrop-blur-xl shadow-sm space-y-2">
-          <span className="text-xs font-bold uppercase tracking-wider text-slate-500">SIF Risk Findings</span>
-          <p className="text-2xl font-extrabold text-red-600">{sifCount} High Risk Logs</p>
-          <p className="text-xs text-slate-600 font-medium">Critical hazard precursor observations identified</p>
+          <span className="text-xs font-bold uppercase tracking-wider text-slate-500">{t('sif_precursors', 'SIF Risk Findings')}</span>
+          <p className="text-2xl font-extrabold text-red-600">{sifCount} {t('sif_precursors', 'High Risk Logs')}</p>
+          <p className="text-xs text-slate-600 font-medium">{t('precursor_ratio', 'Critical hazard precursor observations identified')}</p>
         </div>
       </div>
+    {toastMsg && <Toast message={toastMsg} type={toastType} onClose={() => setToastMsg(null)} />}
     </motion.div>
   );
 };

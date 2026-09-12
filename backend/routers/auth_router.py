@@ -1,27 +1,36 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form
 from sqlalchemy.orm import Session
-from ..database import get_db
-from ..models import User
-from ..schemas import UserCreate, UserLogin, RegisterFaceRequest, LoginFaceRequest, Token, UserResponse
-from ..auth import get_password_hash, verify_password, create_access_token, get_current_user
+from database import get_db
+from models import User
+from schemas import UserCreate, UserLogin, Token, UserResponse
+from auth import get_password_hash, verify_password, create_access_token, get_current_user
 import json
 from datetime import datetime
 
 router = APIRouter()
 
+def normalize_role(role: str) -> str:
+    if not role:
+        return "employee"
+    r = role.lower().strip()
+    if r in ["admin", "safety_officer", "safety officer", "officer"]:
+        return "safety_officer"
+    return "employee"
+
 @router.post("/register", response_model=Token)
 def register(user_in: UserCreate, db: Session = Depends(get_db)):
     db_user = db.query(User).filter(User.email == user_in.email).first()
     if db_user:
-        raise HTTPException(status_code=400, detail="Email is already registered")
+        raise HTTPException(status_code=409, detail="Email is already registered")
 
     hashed_password = get_password_hash(user_in.password)
+    norm_role = normalize_role(user_in.role)
     
     new_user = User(
         full_name=user_in.name,
         email=user_in.email,
         password_hash=hashed_password,
-        role=user_in.role,
+        role=norm_role,
         employee_id=user_in.employeeId or user_in.officerId,
         department=user_in.department,
         designation=user_in.designation,
@@ -46,10 +55,10 @@ def login(user_credentials: UserLogin, db: Session = Depends(get_db)):
             detail="Invalid email or password",
         )
     
-    if user_credentials.role and user.role != user_credentials.role:
+    if user_credentials.role and normalize_role(user.role) != normalize_role(user_credentials.role):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail=f"This account is not authorized as a {user_credentials.role}",
+            detail=f"This account is registered as a {user.role}, not as a {user_credentials.role}",
         )
         
     access_token = create_access_token(data={"sub": str(user.id)})
@@ -67,23 +76,47 @@ def get_me(current_user: User = Depends(get_current_user)):
     return {"status": "success", "user": user_resp}
 
 @router.post("/register-face")
-def register_face(data: RegisterFaceRequest, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    if current_user.employee_id != data.officerId and current_user.id != data.officerId:
-        raise HTTPException(status_code=403, detail="Unauthorized to register face for this user")
+async def register_face(
+    officerId: str = Form(...),
+    image: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    try:
+        from face_recognition import extract_embedding
+        embedding = await extract_embedding(image)
         
-    current_user.face_embeddings = json.dumps(data.embeddings)
-    current_user.face_registered = True
-    db.commit()
-    
-    return {"status": "success", "message": "Biometric face profile registered"}
+        # Store as array of arrays to match existing JSON structure
+        current_user.face_embeddings = json.dumps([embedding])
+        current_user.face_registered = True
+        if officerId and not current_user.employee_id:
+            current_user.employee_id = officerId
+        db.commit()
+        db.refresh(current_user)
+        
+        return {"status": "success", "message": "Biometric face profile registered successfully"}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Failed to process face image")
 
 @router.post("/login-face", response_model=Token)
-def login_face(data: LoginFaceRequest, db: Session = Depends(get_db)):
+async def login_face(
+    image: UploadFile = File(...),
+    db: Session = Depends(get_db)
+):
     users_with_faces = db.query(User).filter(User.face_registered == True).all()
     if not users_with_faces:
         raise HTTPException(status_code=404, detail="No registered Safety Officer facial profiles found")
         
-    live = data.embeddings
+    try:
+        from face_recognition import extract_embedding, match_face
+        live_embedding = await extract_embedding(image)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Failed to process face image")
+        
     best_match_id = None
     highest_sim = -1.0
     matched_user = None
@@ -91,23 +124,24 @@ def login_face(data: LoginFaceRequest, db: Session = Depends(get_db)):
     for user in users_with_faces:
         if not user.face_embeddings:
             continue
-        stored = json.loads(user.face_embeddings)
-        if len(live) != len(stored):
+        try:
+            stored = json.loads(user.face_embeddings)
+        except Exception:
             continue
-            
-        dot = sum(a * b for a, b in zip(live, stored))
-        norm_a = (sum(a * a for a in live)) ** 0.5
-        norm_b = (sum(b * b for b in stored)) ** 0.5
-        sim = dot / (norm_a * norm_b + 1e-7)
         
+        is_multi = len(stored) > 0 and isinstance(stored[0], list)
+        stored_list = stored if is_multi else [stored]
+            
+        is_match, sim = match_face(live_embedding, stored_list, threshold=0.45)
         if sim > highest_sim:
             highest_sim = sim
-            best_match_id = user.id
-            matched_user = user
-            
-    if highest_sim >= 0.82 and matched_user:
+            if is_match:
+                best_match_id = user.id
+                matched_user = user
+                
+    if matched_user:
         access_token = create_access_token(data={"sub": str(matched_user.id)})
         user_resp = UserResponse.model_validate(matched_user)
         return {"status": "success", "token": access_token, "user": user_resp, "similarity": round(highest_sim * 100, 2)}
         
-    raise HTTPException(status_code=401, detail="Face Not Recognized. Biometric similarity score below safety threshold.")
+    raise HTTPException(status_code=401, detail=f"Face Not Recognized. (Similarity: {round(highest_sim * 100, 2)}%)")

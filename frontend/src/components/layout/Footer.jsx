@@ -1,7 +1,10 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import { useLanguage } from '../../context/LanguageContext';
 
 export const Footer = () => {
+  const { t } = useLanguage();
+
   return (
     <footer className="bg-transparent w-full py-8 text-slate-600 font-body-md text-sm relative z-20">
       <div className="max-w-[1515px] mx-auto px-6 sm:px-12 flex flex-col md:flex-row justify-between items-center gap-8 border-t border-slate-200/60 pt-8">
@@ -17,16 +20,15 @@ export const Footer = () => {
 
         {/* Links */}
         <div className="flex flex-wrap items-center justify-center gap-6 text-sm font-medium">
-          <Link className="hover:text-[#FF5E3A] transition-colors" to="/">Dashboard</Link>
-          <Link className="hover:text-[#FF5E3A] transition-colors" to="/predict">Predict SIF</Link>
-          <Link className="hover:text-[#FF5E3A] transition-colors" to="/analytics">Analytics</Link>
-          <Link className="hover:text-[#FF5E3A] transition-colors" to="/history">Audit History</Link>
-          <Link className="hover:text-[#FF5E3A] transition-colors" to="/about">Architecture</Link>
+          <Link className="hover:text-[#FF5E3A] transition-colors" to="/">{t('home', 'Home')}</Link>
+          <Link className="hover:text-[#FF5E3A] transition-colors" to="/predict">{t('predict', 'Predict SIF')}</Link>
+          <Link className="hover:text-[#FF5E3A] transition-colors" to="/analytics">{t('analytics', 'Analytics')}</Link>
+          <Link className="hover:text-[#FF5E3A] transition-colors" to="/history">{t('history', 'Audit History')}</Link>
         </div>
 
         {/* Copyright */}
-        <div className="text-slate-500 text-xs">
-          © 2026 SIF AI Platform. Enterprise Safety Intelligence System.
+        <div className="text-slate-500 text-xs font-medium">
+          © 2026 SIF AI Platform. {t('oil_india_hq', 'Oil India Limited — Safety Operations')}.
         </div>
       </div>
     </footer>

@@ -1,11 +1,18 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useLanguage } from '../context/LanguageContext';
 import { motion } from 'framer-motion';
+import FaceCapture from '../components/auth/FaceCapture';
+import Toast from '../components/common/Toast';
 
 export const RegisterPage = () => {
   const navigate = useNavigate();
-  const { register, isLoading } = useAuth();
+  const { register, isLoading, registerFaceImage } = useAuth();
+  const [showFaceEnrollment, setShowFaceEnrollment] = useState(false);
+  const [registeredUser, setRegisteredUser] = useState(null);
+  const [pendingPayload, setPendingPayload] = useState(null);
+  const { t } = useLanguage();
 
   const [role, setRole] = useState('worker'); // 'worker' or 'admin'
   const [formData, setFormData] = useState({
@@ -22,6 +29,8 @@ export const RegisterPage = () => {
   });
 
   const [errorMsg, setErrorMsg] = useState(null);
+  const [toastMsg, setToastMsg] = useState(null);
+  const [toastType, setToastType] = useState('success');
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -50,13 +59,17 @@ export const RegisterPage = () => {
         phone: formData.phone,
       };
 
-      const registeredUser = await register(payload);
-
-      if (role === 'admin') {
-        // Automatically proceed to Face Registration for Safety Officers
-        navigate('/face-register', { state: { officerId: registeredUser.officerId || formData.officerId || 'SO-101' } });
-      } else {
-        navigate('/employee-dashboard');
+      try {
+        const user = await register(payload);
+        if (role === 'admin') {
+          setRegisteredUser(user);
+          setShowFaceEnrollment(true);
+        } else {
+          navigate('/employee-dashboard');
+        }
+      } catch (err) {
+        setToastMsg(err.message || 'Registration failed.');
+        setToastType('error');
       }
     } catch (err) {
       setErrorMsg(err.message || 'Failed to register account.');
@@ -77,10 +90,10 @@ export const RegisterPage = () => {
             <span className="material-symbols-outlined text-2xl">person_add</span>
           </div>
           <h1 className="font-display-xl text-2xl font-extrabold text-slate-900">
-            Enterprise Account Registration
+            {t('register_title', 'Create Safety Account')}
           </h1>
           <p className="text-xs text-slate-500 font-medium">
-            Register your industrial credentials for SIF AI safety intelligence
+            {t('register_subtitle', 'Register as a Field Observer or Safety Officer.')}
           </p>
         </div>
 
@@ -94,7 +107,7 @@ export const RegisterPage = () => {
             }`}
           >
             <span className="material-symbols-outlined text-base">engineering</span>
-            <span>Worker / Employee</span>
+            <span>{t('worker', 'Field Observer')}</span>
           </button>
 
           <button
@@ -105,7 +118,7 @@ export const RegisterPage = () => {
             }`}
           >
             <span className="material-symbols-outlined text-base">shield_person</span>
-            <span>Safety Officer (Admin)</span>
+            <span>{t('safety_officer', 'Safety Officer')}</span>
           </button>
         </div>
 
@@ -123,7 +136,7 @@ export const RegisterPage = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1">
               <label className="font-bold text-slate-700 uppercase tracking-wider text-[10px]">
-                Full Name
+                {t('full_name_label', 'Full Name')}
               </label>
               <input
                 type="text"
@@ -139,7 +152,7 @@ export const RegisterPage = () => {
             {role === 'worker' ? (
               <div className="space-y-1">
                 <label className="font-bold text-slate-700 uppercase tracking-wider text-[10px]">
-                  Employee ID
+                  {t('employee_id_label', 'Employee ID')}
                 </label>
                 <input
                   type="text"
@@ -154,7 +167,7 @@ export const RegisterPage = () => {
             ) : (
               <div className="space-y-1">
                 <label className="font-bold text-slate-700 uppercase tracking-wider text-[10px]">
-                  Safety Officer ID
+                  {t('officer_id', 'Safety Officer ID')}
                 </label>
                 <input
                   type="text"
@@ -172,7 +185,7 @@ export const RegisterPage = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1">
               <label className="font-bold text-slate-700 uppercase tracking-wider text-[10px]">
-                Department
+                {t('department_label', 'Department')}
               </label>
               <input
                 type="text"
@@ -188,7 +201,7 @@ export const RegisterPage = () => {
             {role === 'worker' ? (
               <div className="space-y-1">
                 <label className="font-bold text-slate-700 uppercase tracking-wider text-[10px]">
-                  Company / Organization
+                  {t('company_org_label', 'Company / Organization')}
                 </label>
                 <input
                   type="text"
@@ -203,7 +216,7 @@ export const RegisterPage = () => {
             ) : (
               <div className="space-y-1">
                 <label className="font-bold text-slate-700 uppercase tracking-wider text-[10px]">
-                  Designation Title
+                  {t('designation_title_label', 'Designation Title')}
                 </label>
                 <input
                   type="text"
@@ -220,7 +233,7 @@ export const RegisterPage = () => {
 
           <div className="space-y-1">
             <label className="font-bold text-slate-700 uppercase tracking-wider text-[10px]">
-              Work Email Address
+              {t('email_label', 'Work Email Address')}
             </label>
             <input
               type="email"
@@ -236,7 +249,7 @@ export const RegisterPage = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1">
               <label className="font-bold text-slate-700 uppercase tracking-wider text-[10px]">
-                Password
+                {t('password_label', 'Password')}
               </label>
               <input
                 type="password"
@@ -251,7 +264,7 @@ export const RegisterPage = () => {
 
             <div className="space-y-1">
               <label className="font-bold text-slate-700 uppercase tracking-wider text-[10px]">
-                Confirm Password
+                {t('confirm_password_label', 'Confirm Password')}
               </label>
               <input
                 type="password"
@@ -270,7 +283,7 @@ export const RegisterPage = () => {
             disabled={isLoading}
             className="w-full py-3.5 rounded-full bg-[#FF5E3A] hover:bg-[#ff4820] text-white font-extrabold text-xs shadow-md transition-all disabled:opacity-50 flex items-center justify-center gap-2 mt-2"
           >
-            <span>{isLoading ? 'Registering Account...' : role === 'admin' ? 'Proceed to Biometric Face Setup' : 'Complete Registration'}</span>
+            <span>{isLoading ? t('analyzing', 'Registering Account...') : t('register', 'Complete Registration')}</span>
             <span className="material-symbols-outlined text-base">arrow_forward</span>
           </button>
         </form>
@@ -279,11 +292,46 @@ export const RegisterPage = () => {
         <div className="pt-4 border-t border-slate-200/60 text-center text-xs text-slate-500 font-medium">
           Already have an account?{' '}
           <Link to="/login" className="font-bold text-[#FF5E3A] hover:underline">
-            Sign in here
+            {t('login', 'Sign in here')}
           </Link>
         </div>
 
       </div>
+
+      {showFaceEnrollment && (
+        <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-slate-50 p-4">
+          <div className="bg-white rounded-3xl p-6 w-full max-w-md relative shadow-2xl">
+            <h2 className="text-2xl font-extrabold text-slate-900 text-center mb-2">Enroll Your Face</h2>
+            <p className="text-xs text-center text-slate-500 font-medium mb-6 px-4">
+              Add your face for faster, secure biometric logins later. You can skip this and do it from your profile later.
+            </p>
+            
+            <FaceCapture 
+              onCapture={async (blob) => {
+                try {
+                  await registerFaceImage(registeredUser?.officerId || registeredUser?.employeeId || 'SO', blob);
+                  setToastMsg('Face enrolled successfully! Welcome.');
+                  setToastType('success');
+                  setTimeout(() => navigate('/officer-dashboard'), 2000);
+                } catch (e) {
+                  setToastMsg(e.message || 'Face enrollment failed.');
+                  setToastType('error');
+                  throw e; // Bubble up so FaceCapture resets loader
+                }
+              }} 
+              isLogin={false} 
+            />
+            
+            <button
+              onClick={() => navigate('/officer-dashboard')}
+              className="w-full mt-4 py-3 rounded-xl bg-slate-100 text-slate-600 font-extrabold text-sm hover:bg-slate-200 transition-colors"
+            >
+              Skip for now
+            </button>
+          </div>
+        </div>
+      )}
+    {toastMsg && <Toast message={toastMsg} type={toastType} onClose={() => setToastMsg(null)} />}
     </motion.div>
   );
 };

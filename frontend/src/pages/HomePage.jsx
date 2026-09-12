@@ -3,8 +3,12 @@ import { Link } from 'react-router-dom';
 
 import QuickPredictWidget from '../components/common/QuickPredictWidget';
 import FAQSection from '../components/common/FAQSection';
+import { useLanguage } from '../context/LanguageContext';
+import { useAuth } from '../context/AuthContext';
 
 export const HomePage = () => {
+  const { t } = useLanguage();
+  const { isAuthenticated, isSafetyOfficer } = useAuth();
   return (
     <div className="w-full">
       
@@ -29,8 +33,6 @@ export const HomePage = () => {
           SIF AI lets you analyze safety observation narratives in seconds. An airy, minimalist workspace designed for seamless AI risk integration.
         </p>
 
-        {/* Central Incident Box Sandbox */}
-        <QuickPredictWidget />
       </section>
 
       {/* Section 2: Short Workflow Pipeline */}

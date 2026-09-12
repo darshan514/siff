@@ -7,34 +7,71 @@ import {
   Flame
 } from 'lucide-react';
 
-export const AnalyticsWidgets = () => {
-  const topHazards = [
-    { name: 'Working at Height without Tie-Off', count: 142, percent: '38.4%' },
-    { name: 'Hydrocarbon & Toxic Gas Leakage', count: 98, percent: '26.5%' },
-    { name: 'Inadequate LOTO Isolation', count: 74, percent: '20.0%' },
-    { name: 'Unsafe Crane Rigging under Load', count: 55, percent: '15.1%' },
-  ];
+export const AnalyticsWidgets = ({ history = [] }) => {
+  const total = history.length || 1;
 
-  const topLocations = [
-    { name: 'Offshore Rig Platform Bravo', count: 184, trend: '+12%' },
-    { name: 'Distillation Unit 4 (Refinery)', count: 152, trend: '+8%' },
-    { name: 'Pipe Rack Corridor Section 2', count: 119, trend: '-4%' },
-    { name: 'Central Warehouse Yard', count: 87, trend: '+2%' },
-  ];
+  // Calculate top hazards by category
+  const categoryCounts = history.reduce((acc, h) => {
+    const cat = h.hazardCategory || 'General Safety';
+    acc[cat] = (acc[cat] || 0) + 1;
+    return acc;
+  }, {});
+  const topHazards = Object.entries(categoryCounts)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 4)
+    .map(([name, count]) => ({
+      name,
+      count,
+      percent: ((count / total) * 100).toFixed(1) + '%'
+    }));
 
-  const topActivities = [
-    { activity: 'Elevated Pipework Maintenance', incidentCount: 165 },
-    { activity: 'Hot Work Cutting & Welding', incidentCount: 128 },
-    { activity: 'Heavy Derrick Lifting Operations', incidentCount: 94 },
-    { activity: 'Vessel Entry & Cleaning', incidentCount: 68 },
-  ];
+  // Calculate top locations
+  const locationCounts = history.reduce((acc, h) => {
+    const loc = h.location || 'Unknown Location';
+    acc[loc] = (acc[loc] || 0) + 1;
+    return acc;
+  }, {});
+  const topLocations = Object.entries(locationCounts)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 4)
+    .map(([name, count]) => ({
+      name,
+      count,
+      trend: '+0%' // Static for now as we don't have historical periods
+    }));
 
-  const violatedRules = [
-    { rule: 'Golden Rule #1: Always wear full-body harness at >1.8m height', count: 215 },
-    { rule: 'Golden Rule #4: Obtain valid Permit-to-Work (PTW) before gas work', count: 178 },
-    { rule: 'Golden Rule #7: Verify zero energy state (LOTO) prior to entry', count: 142 },
-    { rule: 'Golden Rule #9: Never walk beneath suspended crane loads', count: 98 },
-  ];
+  // Calculate top activities (using department + title)
+  const activityCounts = history.reduce((acc, h) => {
+    const act = h.department ? `${h.department} Operations` : 'General Operations';
+    acc[act] = (acc[act] || 0) + 1;
+    return acc;
+  }, {});
+  const topActivities = Object.entries(activityCounts)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 4)
+    .map(([activity, incidentCount]) => ({
+      activity,
+      incidentCount
+    }));
+
+  const maxActivityCount = topActivities.length > 0 ? topActivities[0].incidentCount : 1;
+
+  // Calculate violated rules / recommendations
+  const actionCounts = history.reduce((acc, h) => {
+    if (h.recommendedActions && Array.isArray(h.recommendedActions)) {
+      h.recommendedActions.forEach(action => {
+        acc[action] = (acc[action] || 0) + 1;
+      });
+    }
+    return acc;
+  }, {});
+  const violatedRules = Object.entries(actionCounts)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 4)
+    .map(([rule, count]) => ({
+      rule,
+      count
+    }));
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-left">
@@ -120,7 +157,7 @@ export const AnalyticsWidgets = () => {
               <div className="w-full h-1.5 rounded-full bg-slate-200 overflow-hidden">
                 <div
                   className="h-full bg-gradient-to-r from-amber-500 to-[#FF5E3A] rounded-full"
-                  style={{ width: `${(item.incidentCount / 165) * 100}%` }}
+                  style={{ width: `${(item.incidentCount / maxActivityCount) * 100}%` }}
                 />
               </div>
             </div>

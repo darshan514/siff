@@ -1,10 +1,16 @@
 import React, { useState } from 'react';
 import { usePredictions } from '../../context/PredictionContext';
+import { useAuth } from '../../context/AuthContext';
 import { predictSIFRisk, predictDemoFallback } from '../../services/api';
+import { useLanguage } from '../../context/LanguageContext';
+import { translateToEnglish } from '../../utils/translator';
 import { motion } from 'framer-motion';
+import VoiceInputButton from './VoiceInputButton';
 
 export const QuickPredictWidget = () => {
+  const { user } = useAuth();
   const { addPrediction } = usePredictions();
+  const { t } = useLanguage();
   const [report, setReport] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [result, setResult] = useState(null);
@@ -16,6 +22,14 @@ export const QuickPredictWidget = () => {
     '415V electrical panel maintenance without LOTO'
   ];
 
+  const handleVoiceTranscript = (transcript) => {
+    setReport((prev) => {
+      if (!prev || !prev.trim()) return transcript;
+      if (prev.endsWith(transcript) || prev.includes(transcript)) return prev;
+      return `${prev} ${transcript}`;
+    });
+  };
+
   const handlePredict = async (e) => {
     if (e) e.preventDefault();
     if (!report.trim() || isLoading) return;
@@ -26,24 +40,32 @@ export const QuickPredictWidget = () => {
     const minWait = new Promise((resolve) => setTimeout(resolve, 650));
 
     try {
+      const englishText = await translateToEnglish(report);
       let apiResult;
       try {
-        apiResult = await predictSIFRisk(report);
+        apiResult = await predictSIFRisk(englishText);
       } catch (err) {
-        apiResult = predictDemoFallback(report);
+        apiResult = predictDemoFallback(englishText);
       }
 
       await minWait;
 
       setResult(apiResult);
-      addPrediction({
-        report,
-        prediction: apiResult.prediction,
-        confidence: apiResult.confidence,
-        executionTimeMs: apiResult.executionTimeMs,
-        timestamp: apiResult.timestamp,
-        isDemoFallback: apiResult.isDemoFallback,
-      });
+      
+      if (user) {
+        try {
+          await addPrediction({
+            report,
+            prediction: apiResult.prediction,
+            confidence: apiResult.confidence,
+            executionTimeMs: apiResult.executionTimeMs,
+            timestamp: apiResult.timestamp,
+            isDemoFallback: apiResult.isDemoFallback,
+          });
+        } catch (saveErr) {
+          console.warn("Warning: Could not save prediction to history.", saveErr);
+        }
+      }
     } catch (err) {
       console.error(err);
     } finally {
@@ -59,27 +81,26 @@ export const QuickPredictWidget = () => {
           onChange={(e) => setReport(e.target.value)}
           disabled={isLoading}
           rows={3}
-          placeholder="Describe the incident, unsafe act, or near-miss observation..."
+          placeholder={t('form_narrative_placeholder', 'Describe the incident, unsafe act, or near-miss observation in detail...')}
           className="w-full bg-transparent border-none resize-none font-body-lg text-lg text-slate-900 placeholder:text-slate-400 focus:ring-0 focus:outline-none min-h-[80px]"
         />
 
         <div className="flex flex-wrap items-center justify-between gap-4 pt-4 border-t border-slate-200/60">
           
-          {/* Action pills */}
+          {/* Action pills & Voice Input */}
           <div className="flex flex-wrap items-center gap-3">
-            <button
-              type="button"
-              onClick={() => setReport('')}
-              className="p-2 rounded-full hover:bg-white/80 transition-colors text-slate-600"
-              title="Clear Text"
-            >
-              <span className="material-symbols-outlined">delete</span>
-            </button>
+            <VoiceInputButton currentText={report} onTranscript={(fullText) => setReport(fullText)} />
 
-            <div className="flex items-center gap-2 bg-white/80 border border-white rounded-full px-4 py-1.5 shadow-sm">
-              <span className="text-xs font-semibold text-slate-700">DistilBERT Mode</span>
-              <span className="material-symbols-outlined text-[18px] text-[#FF5E3A]">tune</span>
-            </div>
+            {report && (
+              <button
+                type="button"
+                onClick={() => setReport('')}
+                className="p-2 rounded-full hover:bg-white/80 transition-colors text-slate-600"
+                title="Clear Text"
+              >
+                <span className="material-symbols-outlined">delete</span>
+              </button>
+            )}
           </div>
 
           {/* Submit Arrow Button */}
@@ -95,44 +116,49 @@ export const QuickPredictWidget = () => {
         </div>
       </form>
 
-      {/* Preset Pills */}
-      <div className="flex flex-wrap items-center justify-center gap-2 pt-4">
-        {presets.map((preset, idx) => (
-          <button
-            key={idx}
-            type="button"
-            onClick={() => setReport(preset)}
-            className="bg-white/60 text-slate-800 border border-white/80 shadow-sm rounded-full px-4 py-1.5 text-xs font-medium hover:bg-white transition-colors backdrop-blur-md"
-          >
-            {preset}
-          </button>
-        ))}
-      </div>
 
-      {/* Result Card */}
+
+      {/* Inline Quick Result Box */}
       {result && (
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          className={`mt-4 p-4 rounded-2xl border flex items-center justify-between ${
-            result.prediction === 'SIF'
-              ? 'bg-red-500/10 border-red-300 text-red-900'
-              : 'bg-emerald-500/10 border-emerald-300 text-emerald-900'
+          className={`mt-4 p-4 rounded-2xl border flex flex-col gap-3 ${
+            result.prediction === 'Unrelated Input'
+              ? 'bg-amber-500/10 border-amber-300 text-amber-950'
+              : result.prediction === 'SIF'
+              ? 'bg-red-500/10 border-red-300 text-red-950'
+              : 'bg-emerald-500/10 border-emerald-300 text-emerald-950'
           }`}
         >
-          <div className="flex items-center gap-2">
+          {!user && (
+            <div className="flex items-center gap-1.5 pb-2 border-b border-black/10">
+              <span className="material-symbols-outlined text-[14px]">science</span>
+              <span className="text-xs font-bold uppercase tracking-wider">{t('demo_mode', 'Guest Demo Mode (Not Saved)')}</span>
+            </div>
+          )}
+          <div className="flex items-center gap-3">
             <span className="material-symbols-outlined text-2xl">
-              {result.prediction === 'SIF' ? 'warning' : 'check_circle'}
+              {result.prediction === 'Unrelated Input' ? 'info' : result.prediction === 'SIF' ? 'warning' : 'task_alt'}
             </span>
             <div>
-              <span className="font-extrabold text-sm">
-                {result.prediction === 'SIF' ? 'SIF — High Risk Precursor' : 'Non-SIF — Low Risk'}
-              </span>
-              <p className="text-xs opacity-80">DistilBERT Latency: {result.executionTimeMs}ms</p>
+              {result.prediction === 'Unrelated Input' ? (
+                <>
+                  <p className="font-extrabold text-sm">{t('invalid_obs_title', 'Invalid Observation')}</p>
+                  <p className="text-xs font-medium opacity-80">{t('invalid_obs_desc', 'This is not a valid safety observation.')}</p>
+                </>
+              ) : (
+                <>
+                  <p className="font-extrabold text-sm">
+                    {result.prediction === 'SIF' ? t('sif_potential', 'SIF Precursor (High Risk)') : t('non_sif', 'Non-SIF (Low Risk)')}
+                  </p>
+                  <p className="text-xs font-medium opacity-80">
+                    {t('confidence_score', 'AI Confidence')}: {result.confidence.toFixed(1)}% | {t('latency', 'Latency')}: {result.executionTimeMs || 135}ms
+                  </p>
+                </>
+              )}
             </div>
           </div>
-
-          <span className="font-extrabold text-lg">{result.confidence.toFixed(2)}%</span>
         </motion.div>
       )}
     </div>

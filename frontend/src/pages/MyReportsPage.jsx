@@ -4,31 +4,39 @@ import { useAuth } from '../context/AuthContext';
 import { usePredictions } from '../context/PredictionContext';
 import { generateIncidentReportPDF } from '../utils/pdfGenerator';
 import { formatDate } from '../utils/formatters';
+import { detectIOGPRule } from '../utils/hazardAnalyzer';
 import LoadingSpinner from '../components/common/LoadingSpinner';
+import { useLanguage } from '../context/LanguageContext';
 import { motion } from 'framer-motion';
 
 export const MyReportsPage = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { history, isLoadingReports } = usePredictions();
+  const { t } = useLanguage();
 
   const [statusFilter, setStatusFilter] = useState('ALL');
+  const [departmentFilter, setDepartmentFilter] = useState('ALL');
   const [selectedIncident, setSelectedIncident] = useState(null);
 
-  // Filter reports according to selected status tab
+  // Filter reports according to selected status tab and department filter
   const myReports = useMemo(() => {
     return history.filter(item => {
       const matchesStatus = statusFilter === 'ALL' || item.reviewStatus === statusFilter;
-      return matchesStatus;
+      const matchesDept = departmentFilter === 'ALL' || (item.department || 'Operations') === departmentFilter;
+      return matchesStatus && matchesDept;
     });
-  }, [history, statusFilter]);
+  }, [history, statusFilter, departmentFilter]);
 
   const getStatusBadge = (status) => {
+    if (status === 'Rejected — Off-Topic' || status === 'Rejected' || status === 'Filtered Out') {
+      return 'bg-amber-500/10 text-amber-800 border-amber-300';
+    }
     switch (status) {
       case 'Submitted':
         return 'bg-blue-500/10 text-blue-800 border-blue-300';
       case 'Under Review':
-        return 'bg-amber-500/10 text-amber-800 border-amber-300';
+        return 'bg-purple-500/10 text-purple-800 border-purple-300';
       case 'Action In Progress':
         return 'bg-purple-500/10 text-purple-800 border-purple-300';
       case 'Resolved':
@@ -50,16 +58,16 @@ export const MyReportsPage = () => {
           <div className="inline-flex items-center gap-2 bg-white/60 backdrop-blur-xl border border-white/80 rounded-full px-4 py-1.5 shadow-sm">
             <span className="material-symbols-outlined text-[#FF5E3A] text-sm">assignment</span>
             <span className="font-body-md text-xs font-semibold text-slate-800">
-              Enterprise Incident Ledger
+              {t('oil_india_hq', 'Oil India Limited — Incident Ledger')}
             </span>
           </div>
 
           <h1 className="font-display-xl text-4xl sm:text-5xl font-extrabold text-slate-900 tracking-tight">
-            My Incident Reports
+            {t('my_reports_title', 'My Incident Reports')}
           </h1>
 
           <p className="text-base text-slate-600 max-w-xl">
-            Track real-time review status, safety recommendations, and download official PDF reports for your logged observations.
+            {t('my_reports_subtitle', 'Track real-time review status, IOGP Life-Saving Rules, safety recommendations, and download official PDF reports.')}
           </p>
         </div>
 
@@ -69,33 +77,68 @@ export const MyReportsPage = () => {
           className="px-6 py-3.5 rounded-full bg-[#FF5E3A] hover:bg-[#ff4820] text-white font-extrabold text-xs shadow-md transition-all flex items-center gap-2"
         >
           <span className="material-symbols-outlined text-base">add_alert</span>
-          <span>Submit New Incident</span>
+          <span>{t('file_new_report_btn', 'Submit New Incident')}</span>
         </button>
       </div>
 
       {/* Filter Tabs */}
-      <div className="flex flex-wrap items-center gap-2 bg-white/60 p-2 rounded-2xl border border-white/80 backdrop-blur-xl shadow-sm text-xs font-extrabold">
-        <span className="text-slate-500 px-3 uppercase tracking-wider text-[10px]">Filter Status:</span>
-        
-        {['ALL', 'Submitted', 'Under Review', 'Action In Progress', 'Resolved'].map((st) => (
-          <button
-            key={st}
-            onClick={() => setStatusFilter(st)}
-            className={`px-4 py-2 rounded-xl transition-all ${
-              statusFilter === st
-                ? 'bg-[#FF5E3A] text-white shadow-sm'
-                : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
-            }`}
-          >
-            {st === 'ALL' ? `All Reports (${history.length})` : st}
-          </button>
-        ))}
+      <div className="space-y-3">
+        <div className="flex flex-wrap items-center gap-2 bg-white/60 p-2 rounded-2xl border border-white/80 backdrop-blur-xl shadow-sm text-xs font-extrabold">
+          <span className="text-slate-500 px-3 uppercase tracking-wider text-[10px]">{t('filter_status', 'Filter Status:')}</span>
+          
+          {[
+            { id: 'ALL', label: `${t('filter_all', 'All Reports')} (${history.length})` },
+            { id: 'Submitted', label: t('status_submitted', 'Submitted') },
+            { id: 'Under Review', label: t('status_under_review', 'Under Review') },
+            { id: 'Action In Progress', label: t('status_action_in_progress', 'Action In Progress') },
+            { id: 'Resolved', label: t('status_resolved', 'Resolved') },
+            { id: 'Rejected — Off-Topic', label: t('status_rejected', 'Rejected') }
+          ].map((st) => (
+            <button
+              key={st.id}
+              onClick={() => setStatusFilter(st.id)}
+              className={`px-4 py-2 rounded-xl transition-all ${
+                statusFilter === st.id
+                  ? 'bg-slate-900 text-white shadow-sm'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-white/80'
+              }`}
+            >
+              {st.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Department Filter Tabs */}
+        <div className="flex flex-wrap items-center gap-2 bg-white/60 p-2 rounded-2xl border border-white/80 backdrop-blur-xl shadow-sm text-xs font-extrabold">
+          <span className="text-slate-500 px-3 uppercase tracking-wider text-[10px]">{t('filter_department', 'Filter Department:')}</span>
+          {[
+            { id: 'ALL', label: t('dept_all', 'ALL') },
+            { id: 'Electrical', label: t('dept_electrical', 'Electrical') },
+            { id: 'Fire & Gas', label: t('dept_fire_gas', 'Fire & Gas') },
+            { id: 'Mechanical & Lifting', label: t('dept_mechanical', 'Mechanical & Lifting') },
+            { id: 'Civil & Height', label: t('dept_civil', 'Civil & Height') },
+            { id: 'HSE / Safety', label: t('dept_hse', 'HSE / Safety') },
+            { id: 'Operations', label: t('dept_operations', 'Operations') }
+          ].map((dept) => (
+            <button
+              key={dept.id}
+              onClick={() => setDepartmentFilter(dept.id)}
+              className={`px-3.5 py-1.5 rounded-xl transition-all ${
+                departmentFilter === dept.id
+                  ? 'bg-[#FF5E3A] text-white shadow-sm'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-white/80'
+              }`}
+            >
+              {dept.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Loading Indicator */}
       {isLoadingReports ? (
         <div className="p-12 text-center bg-white/60 backdrop-blur-xl rounded-3xl border border-white/80">
-          <LoadingSpinner label="Fetching Live Reports from Database..." />
+          <LoadingSpinner label={t('analyzing', 'Fetching Live Reports from Database...')} />
         </div>
       ) : (
         /* Incident Reports Grid */
@@ -103,6 +146,9 @@ export const MyReportsPage = () => {
           {myReports.length > 0 ? (
             myReports.map((item) => {
               const isSIF = item.prediction === 'SIF';
+              const isUnrelated = item.prediction === 'Unrelated Input' || item.prediction === 'Unrelated';
+              const iogp = detectIOGPRule(item.report);
+
               return (
                 <div
                   key={item.id}
@@ -112,17 +158,21 @@ export const MyReportsPage = () => {
                     <div className="flex justify-between items-start gap-3 border-b border-slate-200/60 pb-3">
                       <div>
                         <span className="font-mono text-[11px] font-bold text-slate-400">{item.id}</span>
-                        <h3 className="font-extrabold text-base text-slate-900 mt-0.5">{item.title || 'Safety Observation'}</h3>
+                        <h3 className="font-extrabold text-base text-slate-900 mt-0.5">{item.title || t('form_narrative_label', 'Safety Observation')}</h3>
                       </div>
 
                       <span className={`px-3 py-1 rounded-full text-xs font-extrabold border ${getStatusBadge(item.reviewStatus || 'Submitted')}`}>
-                        {item.reviewStatus || 'Submitted'}
+                        {item.reviewStatus || t('status_submitted', 'Submitted')}
                       </span>
                     </div>
 
-                    <div className="flex items-center gap-2 text-xs text-slate-500 font-medium">
+                    <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500 font-medium">
                       <span className="material-symbols-outlined text-base text-slate-400">location_on</span>
                       <span>{item.location || 'Plant Unit'}</span>
+                      <span>•</span>
+                      <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-700 font-bold text-[11px] border border-slate-200">
+                        {item.department || 'Operations'}
+                      </span>
                       <span>•</span>
                       <span className="font-mono text-[11px]">{formatDate(item.timestamp)}</span>
                     </div>
@@ -132,10 +182,23 @@ export const MyReportsPage = () => {
                     </p>
 
                     <div className="flex items-center justify-between text-xs pt-1">
+                      <span className="text-[10px] font-extrabold text-[#FF5E3A] bg-[#FF5E3A]/10 px-2.5 py-1 rounded-full flex items-center gap-1">
+                        <span className="material-symbols-outlined text-[13px]">{iogp.icon}</span>
+                        <span>{iogp.name}</span>
+                      </span>
+
                       <span className={`px-3 py-1 rounded-full text-[11px] font-extrabold border ${
-                        isSIF ? 'bg-red-500/10 text-red-800 border-red-300' : 'bg-emerald-500/10 text-emerald-800 border-emerald-300'
+                        isUnrelated
+                          ? 'bg-amber-500/10 text-amber-800 border-amber-300'
+                          : isSIF
+                          ? 'bg-red-500/10 text-red-800 border-red-300'
+                          : 'bg-emerald-500/10 text-emerald-800 border-emerald-300'
                       }`}>
-                        {isSIF ? 'High Risk SIF' : 'Low Risk Observation'} ({item.confidence?.toFixed(1)}%)
+                        {isUnrelated
+                          ? t('unrelated_input', 'Unrelated Query')
+                          : isSIF
+                          ? `${t('high_risk', 'SIF Risk')} (${item.confidence?.toFixed(1)}%)`
+                          : `${t('low_risk', 'Low Risk')} (${item.confidence?.toFixed(1)}%)`}
                       </span>
                     </div>
                   </div>
@@ -147,7 +210,7 @@ export const MyReportsPage = () => {
                       className="px-4 py-2 rounded-full text-xs font-bold bg-white border border-slate-300 hover:bg-slate-50 text-slate-800 shadow-sm flex items-center gap-1.5"
                     >
                       <span className="material-symbols-outlined text-sm">visibility</span>
-                      <span>View Details</span>
+                      <span>{t('view_details', 'View Details')}</span>
                     </button>
 
                     <button
@@ -156,7 +219,7 @@ export const MyReportsPage = () => {
                       className="px-4 py-2 rounded-full text-xs font-bold text-white bg-slate-900 hover:bg-slate-800 shadow-sm flex items-center gap-1.5"
                     >
                       <span className="material-symbols-outlined text-sm text-[#FF5E3A]">picture_as_pdf</span>
-                      <span>Download PDF</span>
+                      <span>{t('download_pdf', 'Download PDF')}</span>
                     </button>
                   </div>
                 </div>
@@ -165,9 +228,9 @@ export const MyReportsPage = () => {
           ) : (
             <div className="col-span-2 p-12 bg-white/60 backdrop-blur-xl rounded-3xl border border-white/80 text-center space-y-3">
               <span className="material-symbols-outlined text-4xl text-slate-400">assignment_late</span>
-              <p className="font-bold text-base text-slate-800">No incident reports found matching filter.</p>
+              <p className="font-bold text-base text-slate-800">{t('no_reports_found', 'No incident reports found matching filter.')}</p>
               <Link to="/predict" className="inline-block px-6 py-2.5 rounded-full bg-[#FF5E3A] text-white font-extrabold text-xs shadow-md">
-                Submit New Incident
+                {t('file_new_report_btn', 'Submit New Incident')}
               </Link>
             </div>
           )}
@@ -187,24 +250,24 @@ export const MyReportsPage = () => {
 
             <div className="space-y-1">
               <span className="font-mono text-xs font-bold text-slate-400">{selectedIncident.id}</span>
-              <h3 className="font-extrabold text-xl text-slate-900">{selectedIncident.title || 'Safety Observation'}</h3>
+              <h3 className="font-extrabold text-xl text-slate-900">{selectedIncident.title || t('form_narrative_label', 'Safety Observation')}</h3>
               <p className="text-xs text-slate-500 font-medium">{selectedIncident.location} • {formatDate(selectedIncident.timestamp)}</p>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <span className={`px-3 py-1 rounded-full text-xs font-extrabold border ${getStatusBadge(selectedIncident.reviewStatus || 'Submitted')}`}>
-                Status: {selectedIncident.reviewStatus || 'Submitted'}
+                {t('th_review_status', 'Status')}: {selectedIncident.reviewStatus || 'Submitted'}
               </span>
 
               <span className={`px-3 py-1 rounded-full text-xs font-extrabold border ${
                 selectedIncident.prediction === 'SIF' ? 'bg-red-500/10 text-red-800 border-red-300' : 'bg-emerald-500/10 text-emerald-800 border-emerald-300'
               }`}>
-                {selectedIncident.prediction === 'SIF' ? 'SIF High Risk' : 'Low Risk'} ({selectedIncident.confidence?.toFixed(1)}%)
+                {selectedIncident.prediction === 'SIF' ? t('high_risk', 'SIF High Risk') : t('low_risk', 'Low Risk')} ({selectedIncident.confidence?.toFixed(1)}%)
               </span>
             </div>
 
             <div className="space-y-1">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 font-mono">Narrative Detail</span>
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 font-mono">{t('th_narrative_detail', 'Narrative Detail')}</span>
               <p className="p-4 rounded-2xl bg-white border border-slate-200 text-xs text-slate-900 leading-relaxed font-medium">
                 "{selectedIncident.report}"
               </p>
@@ -216,7 +279,7 @@ export const MyReportsPage = () => {
                 className="px-5 py-2.5 bg-slate-900 text-white rounded-full text-xs font-extrabold shadow-md flex items-center gap-1.5"
               >
                 <span className="material-symbols-outlined text-base text-[#FF5E3A]">picture_as_pdf</span>
-                <span>Download PDF</span>
+                <span>{t('download_pdf', 'Download PDF')}</span>
               </button>
             </div>
           </div>

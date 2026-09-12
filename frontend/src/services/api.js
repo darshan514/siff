@@ -35,6 +35,29 @@ export const predictSIFRisk = async (reportText) => {
     throw new Error('Incident report text cannot be empty.');
   }
 
+  const text = reportText.toLowerCase();
+  const generalSafetyKeywords = [
+    "safety", "hazard", "incident", "near miss", "observation", "report", "worker", "employee",
+    "personnel", "operator", "technician", "engineer", "site", "plant", "factory", "construction",
+    "scaffold", "harness", "ladder", "height", "roof", "fall", "crane", "rigging", "hoist", "lifting",
+    "electric", "voltage", "wire", "loto", "lockout", "gas", "leak", "fire", "explosion", "flammable",
+    "confined", "tank", "vessel", "spill", "water", "oil", "slip", "trip", "debris", "ppe", "helmet",
+    "goggles", "gloves", "boots", "machine", "equipment", "tool", "valve", "pipe", "injury", "cut",
+    "burn", "hit", "struck", "caught", "crushed", "damage", "unsafe", "inspection"
+  ];
+  
+  const isRelated = generalSafetyKeywords.some(word => text.includes(word));
+  if (!isRelated) {
+    return {
+      prediction: 'Unrelated Input',
+      confidence: 0.0,
+      executionTimeMs: Math.round(performance.now() - startTime),
+      timestamp: new Date().toISOString(),
+      isDemoFallback: false,
+      message: 'This is not a valid safety observation.'
+    };
+  }
+
   try {
     // Make request to backend API
     const response = await apiClient.post('/predict', {
@@ -83,9 +106,34 @@ export const predictSIFRisk = async (reportText) => {
  */
 export const predictDemoFallback = (reportText) => {
   const text = reportText.toLowerCase();
+  
+  const generalSafetyKeywords = [
+    "safety", "hazard", "incident", "near miss", "observation", "report", "worker", "employee",
+    "personnel", "operator", "technician", "engineer", "site", "plant", "factory", "construction",
+    "scaffold", "harness", "ladder", "height", "roof", "fall", "crane", "rigging", "hoist", "lifting",
+    "electric", "voltage", "wire", "loto", "lockout", "gas", "leak", "fire", "explosion", "flammable",
+    "confined", "tank", "vessel", "spill", "water", "oil", "slip", "trip", "debris", "ppe", "helmet",
+    "goggles", "gloves", "boots", "machine", "equipment", "tool", "valve", "pipe", "injury", "cut",
+    "burn", "hit", "struck", "caught", "crushed", "damage", "unsafe", "inspection"
+  ];
+
+  const isRelated = generalSafetyKeywords.some(word => text.includes(word));
+
+  if (!isRelated) {
+    return {
+      prediction: 'Unrelated Input',
+      confidence: 0.0,
+      executionTimeMs: 45,
+      timestamp: new Date().toISOString(),
+      isDemoFallback: true,
+      message: 'Input does not appear to be an industrial safety incident. Please submit a valid safety report narrative.'
+    };
+  }
+
   const sifKeywords = [
     'height', 'harness', 'scaffold', 'fall', 'crane', 'rigging', 'confined space',
-    'gas', 'leak', 'toxic', 'explosion', 'fire', 'high voltage', 'electric shock',
+    'gas', 'gas mask', 'gas chamber', 'toxic', 'respirator', 'breathing apparatus',
+    'explosion', 'fire', 'high voltage', 'electric shock', 'live wire',
     'trench', 'cave-in', 'amputation', 'crushed', 'bypassed safety', 'loto', 'lockout'
   ];
 
@@ -94,15 +142,14 @@ export const predictDemoFallback = (reportText) => {
     if (text.includes(word)) matches++;
   });
 
-  const isSIF = matches > 0 || text.length > 80;
-  const baseConfidence = isSIF ? 74.50 : 88.20;
-  const variance = Math.floor(Math.random() * 15);
-  const confidence = Math.min(98.8, Math.max(58.0, baseConfidence + (matches * 4) + (variance / 10)));
+  const isSIF = matches > 0 || (text.length > 80 && text.includes('hazard'));
+  const baseConfidence = isSIF ? 88.50 : 89.20;
+  const confidence = Math.min(98.40, Math.max(72.00, baseConfidence + (matches * 2.8)));
 
   return {
     prediction: isSIF ? 'SIF' : 'Non-SIF',
     confidence: Number(confidence.toFixed(2)),
-    executionTimeMs: 120 + Math.floor(Math.random() * 80),
+    executionTimeMs: 135,
     timestamp: new Date().toISOString(),
     isDemoFallback: true,
   };

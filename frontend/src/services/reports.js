@@ -1,4 +1,5 @@
 import { apiClient } from './api';
+import { detectDepartment, generateReportTitle } from '../utils/hazardAnalyzer';
 
 /**
  * FastAPI Reports & AI Analysis Service
@@ -6,48 +7,73 @@ import { apiClient } from './api';
  */
 
 export const formatReportRecord = (reportData) => {
+  const pred = reportData.prediction || reportData.sif_prediction || 'SIF';
+  const isUnrelated = pred === 'Unrelated Input' || pred === 'Unrelated';
+  const narrative = reportData.narrative || reportData.report || '';
+  
+  const category = isUnrelated ? 'Non-Safety / Off-Topic' : (reportData.hazardCategory || reportData.hazard_category || 'General Safety');
+  const detectedDept = isUnrelated ? 'General' : detectDepartment(narrative, category);
+  const dept = reportData.department && reportData.department !== 'Operations' ? reportData.department : detectedDept;
+  
+  const formattedTitle = isUnrelated
+    ? 'Off-Topic Non-Safety Query'
+    : (reportData.title && reportData.title !== 'Industrial Safety Observation' && reportData.title !== 'Safety Observation Incident'
+        ? reportData.title
+        : generateReportTitle(narrative));
+
   return {
     id: reportData.id || `rep-${Math.random().toString(36).substring(2, 9)}`,
     userId: reportData.userId || reportData.user_id,
-    title: reportData.title || 'Industrial Safety Observation',
-    report: reportData.narrative || reportData.report || '',
+    title: formattedTitle,
+    report: narrative,
     location: reportData.location || 'Plant Unit',
     reporterName: reportData.reporterName || reportData.reporter_name || 'Safety Observer',
     reporterId: reportData.reporterId || reportData.employee_id || 'EMP-1001',
-    department: reportData.department || 'Operations',
+    department: dept,
     company: reportData.company || 'SIF Enterprise',
-    prediction: reportData.prediction || reportData.sif_prediction || 'SIF',
-    confidence: Number(reportData.confidence || 90.0),
-    hazardCategory: reportData.hazardCategory || reportData.hazard_category || 'General Safety',
-    recommendedActions: reportData.recommendedActions || reportData.recommended_actions || [],
+    prediction: pred,
+    confidence: isUnrelated ? 0.0 : Number(reportData.confidence || 90.0),
+    hazardCategory: category,
+    recommendedActions: isUnrelated ? ['Submit a valid safety report narrative'] : (reportData.recommendedActions || reportData.recommended_actions || []),
     executionTimeMs: Number(reportData.executionTimeMs || reportData.execution_time_ms || 135),
     timestamp: reportData.timestamp || reportData.created_at || new Date().toISOString(),
-    status: (reportData.prediction || reportData.sif_prediction) === 'SIF' ? 'High Risk' : 'Low Risk',
-    reviewStatus: reportData.reviewStatus || reportData.status || 'Submitted',
+    status: isUnrelated ? 'Unrelated' : pred === 'SIF' ? 'High Risk' : 'Low Risk',
+    reviewStatus: isUnrelated ? 'Rejected — Off-Topic' : (reportData.reviewStatus || reportData.status || 'Submitted'),
     evidence: reportData.evidence || reportData.evidence_url || null,
   };
 };
 
 export const apiSaveReportWithAI = async (reportData, aiData, currentUser) => {
   const userId = currentUser?.id || null;
+  const isUnrelated = aiData.prediction === 'Unrelated Input' || aiData.prediction === 'Unrelated';
+  const narrative = reportData.narrative || reportData.report || '';
+  const category = isUnrelated ? 'Non-Safety / Off-Topic' : (aiData.hazardCategory || 'Operational Safety');
+  const detectedDept = isUnrelated ? 'General' : detectDepartment(narrative, category);
+  const dept = currentUser?.department || (reportData.department && reportData.department !== 'Operations' ? reportData.department : detectedDept);
+
+  const formattedTitle = isUnrelated
+    ? 'Off-Topic Non-Safety Query'
+    : (reportData.title && reportData.title !== 'Industrial Safety Observation' && reportData.title !== 'Safety Observation Incident'
+        ? reportData.title
+        : generateReportTitle(narrative));
 
   const payload = {
     user_id: userId,
     reporter_name: currentUser?.name || reportData.reporterName || 'Safety Observer',
     employee_id: currentUser?.employeeId || currentUser?.officerId || reportData.reporterId || 'EMP-1001',
-    department: currentUser?.department || reportData.department || 'Operations',
+    department: dept,
     company: currentUser?.company || reportData.company || 'SIF Enterprise',
-    title: reportData.title || 'Safety Observation Incident',
+    title: formattedTitle,
     incident_date: reportData.incidentDate || new Date().toISOString(),
     location: reportData.location || 'Distillation Unit 4',
-    narrative: reportData.narrative || reportData.report || '',
+    narrative: narrative,
     evidence_url: reportData.evidence || null,
-    status: reportData.reviewStatus || 'Submitted',
+    status: isUnrelated ? 'Rejected — Off-Topic' : (reportData.reviewStatus || 'Submitted'),
     
     // AI data included in payload for backend handling
     prediction: aiData.prediction || 'SIF',
-    confidence: Number(aiData.confidence || 90.0),
-    hazard_category: aiData.hazardCategory || 'Operational Safety',
+    confidence: isUnrelated ? 0.0 : Number(aiData.confidence || 90.0),
+    hazard_category: category,
     recommended_actions: aiData.recommendedActions || [],
     execution_time_ms: Number(aiData.executionTimeMs || 135),
   };
