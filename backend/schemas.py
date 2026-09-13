@@ -30,7 +30,7 @@ class UserResponse(BaseModel):
     company: Optional[str] = None
     designation: Optional[str] = None
     phone: Optional[str] = None
-    face_registered: bool
+    
     created_at: datetime
 
     class Config:

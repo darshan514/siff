@@ -4,7 +4,6 @@ import { useAuth } from '../context/AuthContext';
 import { usePredictions } from '../context/PredictionContext';
 import { useLanguage } from '../context/LanguageContext';
 import { motion } from 'framer-motion';
-import FaceCapture from '../components/auth/FaceCapture';
 import Toast from '../components/common/Toast';
 
 export const ProfilePage = () => {
@@ -31,16 +30,7 @@ export const ProfilePage = () => {
     setIsEditing(false);
   };
 
-  const handleEnrollment = async (blob) => {
-    try {
-      await registerFaceImage(user.officerId || user.employeeId || user.id, blob);
-      setIsEnrolling(false);
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
-  return (
+    return (
     <motion.div
       initial={{ opacity: 0, y: 15 }}
       animate={{ opacity: 1, y: 0 }}

@@ -3,34 +3,19 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import { motion } from 'framer-motion';
-import FaceCapture from '../components/auth/FaceCapture';
 import Toast from '../components/common/Toast';
 
 export const LoginPage = () => {
   const navigate = useNavigate();
-  const { login, loginWithFaceImage, isLoading } = useAuth();
+  const { login, isLoading } = useAuth();
   const { t } = useLanguage();
 
   const [activeRole, setActiveRole] = useState('worker'); // 'worker' or 'admin'
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [errorMsg, setErrorMsg] = useState(null);
-  const [showFaceLogin, setShowFaceLogin] = useState(false);
   const [toastMsg, setToastMsg] = useState(null);
   const [toastType, setToastType] = useState('success');
-
-  const handleFaceCapture = async (blob) => {
-    setErrorMsg(null);
-    try {
-      await loginWithFaceImage(blob);
-      setToastMsg('Face login successful!');
-      setToastType('success');
-      setTimeout(() => navigate('/officer-dashboard'), 1500);
-    } catch (err) {
-      setErrorMsg(err.message || 'Face login failed. Try email/password.');
-      setShowFaceLogin(false);
-    }
-  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -147,31 +132,10 @@ export const LoginPage = () => {
             <span>{isLoading ? t('analyzing', 'Authenticating...') : t('login', 'Sign In')}</span>
           </button>
           
-          {activeRole === 'admin' && (
-            <button
-              type="button"
-              onClick={() => setShowFaceLogin(true)}
-              className="w-full py-3.5 rounded-full bg-slate-900 hover:bg-slate-800 text-white font-extrabold text-xs shadow-md transition-all flex items-center justify-center gap-2"
-            >
-              <span className="material-symbols-outlined text-base">face</span>
-              <span>Login with Face Recognition</span>
-            </button>
-          )}
+          
         </form>
 
-        {showFaceLogin && (
-          <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-slate-50 p-4">
-            <div className="bg-white rounded-3xl p-6 w-full max-w-sm relative">
-              <button
-                onClick={() => setShowFaceLogin(false)}
-                className="absolute top-4 right-4 text-slate-400 hover:text-slate-600"
-              >
-                <span className="material-symbols-outlined">close</span>
-              </button>
-              <FaceCapture onCapture={handleFaceCapture} isLogin={true} />
-            </div>
-          </div>
-        )}
+        
 
         <div className="pt-2 text-center text-xs text-slate-500 font-medium">
           Don't have an account?{' '}

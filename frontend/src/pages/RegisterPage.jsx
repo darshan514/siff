@@ -3,15 +3,12 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import { motion } from 'framer-motion';
-import FaceCapture from '../components/auth/FaceCapture';
 import Toast from '../components/common/Toast';
 
 export const RegisterPage = () => {
   const navigate = useNavigate();
-  const { register, isLoading, registerFaceImage } = useAuth();
-  const [showFaceEnrollment, setShowFaceEnrollment] = useState(false);
-  const [registeredUser, setRegisteredUser] = useState(null);
-  const [pendingPayload, setPendingPayload] = useState(null);
+  const { register, isLoading } = useAuth();
+      const [pendingPayload, setPendingPayload] = useState(null);
   const { t } = useLanguage();
 
   const [role, setRole] = useState('worker'); // 'worker' or 'admin'
@@ -298,39 +295,7 @@ export const RegisterPage = () => {
 
       </div>
 
-      {showFaceEnrollment && (
-        <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-slate-50 p-4">
-          <div className="bg-white rounded-3xl p-6 w-full max-w-md relative shadow-2xl">
-            <h2 className="text-2xl font-extrabold text-slate-900 text-center mb-2">Enroll Your Face</h2>
-            <p className="text-xs text-center text-slate-500 font-medium mb-6 px-4">
-              Add your face for faster, secure biometric logins later. You can skip this and do it from your profile later.
-            </p>
-            
-            <FaceCapture 
-              onCapture={async (blob) => {
-                try {
-                  await registerFaceImage(registeredUser?.officerId || registeredUser?.employeeId || 'SO', blob);
-                  setToastMsg('Face enrolled successfully! Welcome.');
-                  setToastType('success');
-                  setTimeout(() => navigate('/officer-dashboard'), 2000);
-                } catch (e) {
-                  setToastMsg(e.message || 'Face enrollment failed.');
-                  setToastType('error');
-                  throw e; // Bubble up so FaceCapture resets loader
-                }
-              }} 
-              isLogin={false} 
-            />
-            
-            <button
-              onClick={() => navigate('/officer-dashboard')}
-              className="w-full mt-4 py-3 rounded-xl bg-slate-100 text-slate-600 font-extrabold text-sm hover:bg-slate-200 transition-colors"
-            >
-              Skip for now
-            </button>
-          </div>
-        </div>
-      )}
+      
     {toastMsg && <Toast message={toastMsg} type={toastType} onClose={() => setToastMsg(null)} />}
     </motion.div>
   );

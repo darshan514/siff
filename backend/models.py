@@ -20,8 +20,8 @@ class User(Base):
     designation = Column(String, nullable=True)
     company = Column(String, nullable=True)
     phone = Column(String, nullable=True)
-    face_registered = Column(Boolean, default=False)
-    face_embeddings = Column(String, nullable=True)
+    
+    
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     reports = relationship("Report", back_populates="user")

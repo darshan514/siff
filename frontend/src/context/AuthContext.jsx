@@ -4,8 +4,7 @@ import {
   apiRegister,
   apiLogout,
   apiGetCurrentUser,
-  apiRegisterFaceImage,
-  apiLoginFaceImage,
+  
 } from '../services/auth';
 
 const AuthContext = createContext();
@@ -111,29 +110,9 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const registerFaceImage = async (officerId, imageBlob) => {
-    try {
-      await apiRegisterFaceImage(officerId, imageBlob);
-      if (user) {
-        setUser({ ...user, isFaceRegistered: true });
-      }
-      return true;
-    } catch (err) {
-      console.error("Face registration failed:", err);
-      throw err;
-    }
-  };
+  
 
-  const loginWithFaceImage = async (imageBlob) => {
-    try {
-      const profile = await apiLoginFaceImage(imageBlob);
-      setUser(profile);
-      return profile;
-    } catch (err) {
-      console.error("Face login failed:", err);
-      throw err;
-    }
-  };
+  
 
   const isEmployee = user?.role === 'employee' || user?.role === 'worker';
   const isSafetyOfficer = user?.role === 'safety_officer' || user?.role === 'admin';
@@ -151,8 +130,7 @@ export const AuthProvider = ({ children }) => {
         login,
         register,
         logout,
-        registerFaceImage,
-        loginWithFaceImage,
+        
       }}
     >
       {children}

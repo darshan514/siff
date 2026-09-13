@@ -114,25 +114,3 @@ export const apiGetCurrentUser = async () => {
   }
 };
 
-export const apiRegisterFaceImage = async (officerId, imageBlob) => {
-  const formData = new FormData();
-  formData.append('officerId', officerId);
-  formData.append('image', imageBlob, 'face.jpg');
-  const response = await apiClient.post('/api/register-face', formData, {
-    headers: { 'Content-Type': 'multipart/form-data' }
-  });
-  return response.data;
-};
-
-export const apiLoginFaceImage = async (imageBlob) => {
-  const formData = new FormData();
-  formData.append('image', imageBlob, 'face.jpg');
-  const response = await apiClient.post('/api/login-face', formData, {
-    headers: { 'Content-Type': 'multipart/form-data' }
-  });
-  if (response.data?.token) {
-    localStorage.setItem('sif_auth_token', response.data.token);
-  }
-  return formatUserProfile(response.data.user);
-};
-

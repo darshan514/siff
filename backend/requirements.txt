@@ -8,7 +8,5 @@ pyjwt
 torch
 transformers
 python-multipart
-onnxruntime
-opencv-python-headless
 huggingface_hub
 numpy
