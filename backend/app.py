@@ -65,11 +65,11 @@ if not MODEL_PATH:
 print(f"Initializing Tokenizer from {MODEL_PATH}")
 try:
     if MODEL_PATH == "darsh90844/sif":
-        tokenizer = AutoTokenizer.from_pretrained(MODEL_PATH, subfolder="sif_model")
+        tokenizer = AutoTokenizer.from_pretrained(MODEL_PATH, subfolder="sif_model", use_fast=False)
         print(f"Initializing Model from {MODEL_PATH}")
         model = AutoModelForSequenceClassification.from_pretrained(MODEL_PATH, subfolder="sif_model", num_labels=2, low_cpu_mem_usage=True)
     else:
-        tokenizer = AutoTokenizer.from_pretrained(MODEL_PATH)
+        tokenizer = AutoTokenizer.from_pretrained(MODEL_PATH, use_fast=False)
         print(f"Initializing Model from {MODEL_PATH}")
         model = AutoModelForSequenceClassification.from_pretrained(MODEL_PATH, num_labels=2, low_cpu_mem_usage=True)
     print(f"Successfully loaded model from: {MODEL_PATH}")
@@ -78,7 +78,7 @@ except Exception as e:
     import gc
     gc.collect()  # force memory cleanup before fallback
     FALLBACK_MODEL = "prajjwal1/bert-tiny"
-    tokenizer = AutoTokenizer.from_pretrained(FALLBACK_MODEL)
+    tokenizer = AutoTokenizer.from_pretrained(FALLBACK_MODEL, use_fast=False)
     model = AutoModelForSequenceClassification.from_pretrained(FALLBACK_MODEL, num_labels=2, low_cpu_mem_usage=True)
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
