@@ -10,3 +10,4 @@ transformers
 python-multipart
 huggingface_hub
 numpy
+email-validator
