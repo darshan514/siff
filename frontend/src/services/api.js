@@ -88,7 +88,7 @@ export const predictSIFRisk = async (reportText) => {
     } else if (error.response) {
       errorMessage = `Server error (${error.response.status}): ${error.response.data?.message || 'Prediction failed.'}`;
     } else if (error.request) {
-      errorMessage = 'Unable to connect to AI server at http://127.0.0.1:8000. Please ensure the FastAPI backend is running.';
+      errorMessage = `Unable to connect to AI server at ${API_BASE_URL}. Please ensure the FastAPI backend is running.`;
     } else {
       errorMessage = error.message || 'An unexpected error occurred.';
     }
