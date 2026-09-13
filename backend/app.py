@@ -54,7 +54,13 @@ for candidate in POSSIBLE_PATHS:
         break
 
 if not MODEL_PATH:
-    MODEL_PATH = "darsh90844/sif"
+    # If we are running on Render Free Tier, attempting to load a 260MB model into 512MB RAM will trigger 
+    # the Linux OOM Killer before Python can even catch the Exception. Force TinyBERT on Render.
+    if os.getenv("RENDER"):
+        print("Detected Render deployment. Forcing lightweight TinyBERT to stay under 512MB limit.")
+        MODEL_PATH = "prajjwal1/bert-tiny"
+    else:
+        MODEL_PATH = "darsh90844/sif"
 
 print(f"Initializing Tokenizer from {MODEL_PATH}")
 try:
