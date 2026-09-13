@@ -1,5 +1,6 @@
 import os
 import torch
+torch.set_num_threads(1)  # Reduce memory footprint on Render Free Tier
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -55,15 +56,19 @@ for candidate in POSSIBLE_PATHS:
 if not MODEL_PATH:
     MODEL_PATH = "darsh90844/sif"
 
+print(f"Initializing Tokenizer from {MODEL_PATH}")
 try:
     tokenizer = DistilBertTokenizer.from_pretrained(MODEL_PATH)
-    model = DistilBertForSequenceClassification.from_pretrained(MODEL_PATH)
-    print(f"Successfully loaded DistilBERT SIF Model from: {MODEL_PATH}")
+    print(f"Initializing Model from {MODEL_PATH}")
+    model = DistilBertForSequenceClassification.from_pretrained(MODEL_PATH, num_labels=2, low_cpu_mem_usage=True)
+    print(f"Successfully loaded model from: {MODEL_PATH}")
 except Exception as e:
     print(f"Warning: Primary model failed ({e}), falling back to distilbert-base-uncased")
+    import gc
+    gc.collect()  # force memory cleanup before fallback
     FALLBACK_MODEL = "distilbert-base-uncased"
     tokenizer = DistilBertTokenizer.from_pretrained(FALLBACK_MODEL)
-    model = DistilBertForSequenceClassification.from_pretrained(FALLBACK_MODEL, num_labels=2)
+    model = DistilBertForSequenceClassification.from_pretrained(FALLBACK_MODEL, num_labels=2, low_cpu_mem_usage=True)
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 model.to(device)
