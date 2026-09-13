@@ -4,7 +4,7 @@ torch.set_num_threads(1)  # Reduce memory footprint on Render Free Tier
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from transformers import DistilBertTokenizer, DistilBertForSequenceClassification
+from transformers import AutoTokenizer, AutoModelForSequenceClassification
 from database import engine, Base
 from routers import auth_router, reports_router
 
@@ -58,17 +58,22 @@ if not MODEL_PATH:
 
 print(f"Initializing Tokenizer from {MODEL_PATH}")
 try:
-    tokenizer = DistilBertTokenizer.from_pretrained(MODEL_PATH)
-    print(f"Initializing Model from {MODEL_PATH}")
-    model = DistilBertForSequenceClassification.from_pretrained(MODEL_PATH, num_labels=2, low_cpu_mem_usage=True)
+    if MODEL_PATH == "darsh90844/sif":
+        tokenizer = AutoTokenizer.from_pretrained(MODEL_PATH, subfolder="sif_model")
+        print(f"Initializing Model from {MODEL_PATH}")
+        model = AutoModelForSequenceClassification.from_pretrained(MODEL_PATH, subfolder="sif_model", num_labels=2, low_cpu_mem_usage=True)
+    else:
+        tokenizer = AutoTokenizer.from_pretrained(MODEL_PATH)
+        print(f"Initializing Model from {MODEL_PATH}")
+        model = AutoModelForSequenceClassification.from_pretrained(MODEL_PATH, num_labels=2, low_cpu_mem_usage=True)
     print(f"Successfully loaded model from: {MODEL_PATH}")
 except Exception as e:
-    print(f"Warning: Primary model failed ({e}), falling back to distilbert-base-uncased")
+    print(f"Warning: Primary model failed ({e}), falling back to tiny bert to save memory")
     import gc
     gc.collect()  # force memory cleanup before fallback
-    FALLBACK_MODEL = "distilbert-base-uncased"
-    tokenizer = DistilBertTokenizer.from_pretrained(FALLBACK_MODEL)
-    model = DistilBertForSequenceClassification.from_pretrained(FALLBACK_MODEL, num_labels=2, low_cpu_mem_usage=True)
+    FALLBACK_MODEL = "prajjwal1/bert-tiny"
+    tokenizer = AutoTokenizer.from_pretrained(FALLBACK_MODEL)
+    model = AutoModelForSequenceClassification.from_pretrained(FALLBACK_MODEL, num_labels=2, low_cpu_mem_usage=True)
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 model.to(device)
