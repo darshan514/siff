@@ -57,10 +57,9 @@ export const RegisterPage = () => {
       };
 
       try {
-        const user = await register(payload);
+        await register(payload);
         if (role === 'admin') {
-          setRegisteredUser(user);
-          setShowFaceEnrollment(true);
+          navigate('/admin-dashboard');
         } else {
           navigate('/employee-dashboard');
         }
