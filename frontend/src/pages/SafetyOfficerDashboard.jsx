@@ -8,6 +8,7 @@ import RiskHeatMap from '../components/analytics/RiskHeatMap';
 import AIExecutiveSummary from '../components/analytics/AIExecutiveSummary';
 import { calculateOilIndiaRiskIndex } from '../utils/hazardAnalyzer';
 import { generateBatchReportPDF } from '../utils/pdfGenerator';
+import { generateBatchReportExcel } from '../utils/excelGenerator';
 import { useLanguage } from '../context/LanguageContext';
 import { motion } from 'framer-motion';
 
@@ -54,6 +55,10 @@ export const SafetyOfficerDashboard = () => {
 
   const handleExportPDF = () => {
     generateBatchReportPDF(validSafetyReports);
+  };
+
+  const handleExportExcel = () => {
+    generateBatchReportExcel(validSafetyReports);
   };
 
   const toggleDept = (deptId) => {
@@ -134,14 +139,22 @@ export const SafetyOfficerDashboard = () => {
             <span>{t('batch', 'Batch Analysis')}</span>
           </button>
 
-          <button
-            type="button"
-            onClick={handleExportPDF}
-            className="px-4 py-2.5 rounded-full bg-white border border-slate-300 text-slate-900 hover:bg-slate-50 font-extrabold text-xs shadow-sm transition-all flex items-center gap-1.5"
-          >
-            <span className="material-symbols-outlined text-base">picture_as_pdf</span>
-            <span>{t('export_pdf', 'Export Report')}</span>
-          </button>
+            <button
+              type="button"
+              onClick={handleExportExcel}
+              className="px-4 py-2.5 rounded-full bg-white border border-slate-300 text-slate-900 hover:bg-slate-50 font-extrabold text-xs shadow-sm transition-all flex items-center gap-1.5"
+            >
+              <span className="material-symbols-outlined text-base text-emerald-600">table_chart</span>
+              <span>{t('export_excel', 'Export Excel')}</span>
+            </button>
+            <button
+              type="button"
+              onClick={handleExportPDF}
+              className="px-4 py-2.5 rounded-full bg-white border border-slate-300 text-slate-900 hover:bg-slate-50 font-extrabold text-xs shadow-sm transition-all flex items-center gap-1.5"
+            >
+              <span className="material-symbols-outlined text-base text-red-500">picture_as_pdf</span>
+              <span>{t('export_pdf', 'Export PDF')}</span>
+            </button>
         </div>
       </div>
 
