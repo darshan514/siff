@@ -11,7 +11,11 @@ from routers import auth_router, reports_router
 # Initialize Database
 Base.metadata.create_all(bind=engine)
 
-app = FastAPI(title="SIF AI API")
+app = FastAPI(title="SIF Prediction API")
+
+@app.get("/health")
+def health_check():
+    return {"status": "ok"}
 
 # ---------------- CORS ----------------
 allowed_origins_env = os.getenv("ALLOWED_ORIGINS", "")
