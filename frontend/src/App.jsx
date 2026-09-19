@@ -25,6 +25,8 @@ import SafetyOfficerDashboard from './pages/SafetyOfficerDashboard';
 import ProfilePage from './pages/ProfilePage';
 import MyReportsPage from './pages/MyReportsPage';
 
+import SafetyChatbot from './components/chat/SafetyChatbot';
+
 export function App() {
   return (
     <ThemeProvider>
@@ -90,35 +92,14 @@ export function App() {
                       }
                     />
 
-                    <Route
-                      path="/history"
-                      element={
-                        <ProtectedRoute allowedRoles={['worker', 'admin']}>
-                          <HistoryPage />
-                        </ProtectedRoute>
-                      }
-                    />
-
-                    {/* Restricted Safety Officer (Admin) Enterprise Features */}
-                    <Route
-                      path="/batch"
-                      element={
-                        <ProtectedRoute allowedRoles={['admin']}>
-                          <BatchPage />
-                        </ProtectedRoute>
-                      }
-                    />
-
-                    <Route
-                      path="/analytics"
-                      element={
-                        <ProtectedRoute allowedRoles={['admin']}>
-                          <AnalyticsPage />
-                        </ProtectedRoute>
-                      }
-                    />
+                    <Route path="/history" element={<HistoryPage />} />
+                    <Route path="/batch" element={<BatchPage />} />
+                    <Route path="/analytics" element={<AnalyticsPage />} />
                   </Routes>
                 </main>
+
+                {/* AI Safety & System Assistant Floating Chatbot */}
+                <SafetyChatbot />
 
                 {/* Horizon Minimal Glass Footer */}
                 <Footer />

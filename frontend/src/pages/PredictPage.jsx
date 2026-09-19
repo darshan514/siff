@@ -95,32 +95,28 @@ export const PredictPage = () => {
 
       const hazardInfo = analyzeHazardInsights(englishText, apiResult.prediction, lang);
 
-      // Save Incident Report and AI Analysis to database
-      if (user) {
-        await addPrediction({
-          title: title || 'Industrial Safety Observation',
-          location: location || 'Plant Facility Unit',
-          report: reportText,
-          narrative: reportText,
-          reporterName: user?.name || 'Field Representative',
-          reporterId: user?.employeeId || user?.officerId || 'EMP-1001',
-          department: user?.department || 'Plant Safety Operations',
-          company: user?.company || 'SIF Enterprise',
-          prediction: apiResult.prediction,
-          confidence: apiResult.confidence,
-          hazardCategory: hazardInfo?.primaryCategory || oilCategory?.name || 'General Hazard',
-          recommendedActions: hazardInfo?.recommendedPPE || [],
-          executionTimeMs: apiResult.executionTimeMs || 135,
-          timestamp: new Date().toISOString(),
-          reviewStatus: 'Submitted',
-        });
-      }
+      // Save Incident Report and AI Analysis to State, LocalStorage, and Database
+      await addPrediction({
+        title: title || 'Industrial Safety Observation',
+        location: location || 'Oil India Field Site',
+        report: reportText,
+        narrative: reportText,
+        reporterName: user?.name || 'Field Observer',
+        reporterId: user?.employeeId || user?.officerId || 'EMP-1001',
+        department: user?.department || hazardInfo?.primaryCategory || oilCategory?.name || 'Operations',
+        company: user?.company || 'Oil India Limited',
+        prediction: apiResult.prediction,
+        confidence: apiResult.confidence,
+        hazardCategory: hazardInfo?.primaryCategory || oilCategory?.name || 'General Safety',
+        recommendedActions: hazardInfo?.recommendedPPE || [],
+        executionTimeMs: apiResult.executionTimeMs || 135,
+        timestamp: new Date().toISOString(),
+        reviewStatus: 'Submitted',
+      });
 
       setToastMessage({
-        text: !user 
-          ? t('demo_result_toast', 'Demo result — not saved to database') 
-          : `Report saved to Database & classified as ${apiResult.prediction} (${apiResult.confidence.toFixed(1)}%)`,
-        type: !user ? 'info' : 'success',
+        text: `Observation logged & classified as ${apiResult.prediction} (${apiResult.confidence.toFixed(1)}%) — Synced to Audit Log & Dashboard`,
+        type: 'success',
       });
     } catch (err) {
       setErrorInfo({

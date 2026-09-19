@@ -26,6 +26,9 @@ export const Navbar = () => {
       return [
         { name: t('home', 'Home'), path: '/' },
         { name: t('predict', 'Predict SIF'), path: '/predict' },
+        { name: t('batch', 'Batch Analysis'), path: '/batch' },
+        { name: t('analytics', 'Analytics'), path: '/analytics' },
+        { name: t('history', 'Audit Log'), path: '/history' },
       ];
     }
 

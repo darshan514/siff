@@ -34,12 +34,16 @@ def create_report(report_in: ReportCreate, db: Session = Depends(get_db), curren
     db.commit()
     db.refresh(new_report)
     
-    # We need to manually parse the recommended_actions JSON string for the response
+    dept = report_in.department or (current_user.department if current_user else "Operations")
     report_dict = {
         "id": new_report.id,
         "user_id": new_report.user_id,
+        "reporter_name": current_user.full_name if current_user and current_user.full_name else (report_in.reporter_name or "Field Observer"),
+        "employee_id": current_user.employee_id if current_user and current_user.employee_id else (report_in.employee_id or "EMP-1001"),
+        "department": dept,
+        "company": current_user.company if current_user and current_user.company else (report_in.company or "Oil India Limited"),
         "title": new_report.title,
-        "location": new_report.location,
+        "location": new_report.location or "Plant Facility Unit",
         "narrative": new_report.narrative,
         "prediction": new_report.prediction,
         "confidence": new_report.confidence,
@@ -79,7 +83,7 @@ def get_reports(user_id: Optional[str] = None, db: Session = Depends(get_db), cu
         reporter_name = r.user.full_name if r.user and r.user.full_name else "Field Observer"
         emp_id = r.user.employee_id if r.user and r.user.employee_id else "EMP-1001"
         dept = r.department or (r.user.department if r.user else "Operations")
-        comp = r.user.company if r.user and r.user.company else "SIF Enterprise"
+        comp = r.user.company if r.user and r.user.company else "Oil India Limited"
 
         response_list.append({
             "id": r.id,

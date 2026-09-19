@@ -11,9 +11,13 @@ export const formatReportRecord = (reportData) => {
   const isUnrelated = pred === 'Unrelated Input' || pred === 'Unrelated';
   const narrative = reportData.narrative || reportData.report || '';
   
-  const category = isUnrelated ? 'Non-Safety / Off-Topic' : (reportData.hazardCategory || reportData.hazard_category || 'General Safety');
+  const category = isUnrelated 
+    ? 'Non-Safety / Off-Topic' 
+    : (reportData.hazardCategory || reportData.hazard_category || reportData.ai_analysis?.hazard_category || reportData.category || 'General Safety');
   const detectedDept = isUnrelated ? 'General' : detectDepartment(narrative, category);
-  const dept = reportData.department && reportData.department !== 'Operations' ? reportData.department : detectedDept;
+  const dept = reportData.department && reportData.department !== 'Operations' && reportData.department !== 'Industrial Operations' 
+    ? reportData.department 
+    : (detectedDept !== 'Operations' ? detectedDept : (reportData.department || 'Operations'));
   
   const formattedTitle = isUnrelated
     ? 'Off-Topic Non-Safety Query'
@@ -21,20 +25,25 @@ export const formatReportRecord = (reportData) => {
         ? reportData.title
         : generateReportTitle(narrative));
 
+  const recActions = isUnrelated 
+    ? ['Submit a valid safety report narrative'] 
+    : (reportData.recommendedActions || reportData.recommended_actions || reportData.ai_analysis?.recommended_actions || []);
+
   return {
     id: reportData.id || `rep-${Math.random().toString(36).substring(2, 9)}`,
     userId: reportData.userId || reportData.user_id,
     title: formattedTitle,
     report: narrative,
-    location: reportData.location || 'Plant Unit',
+    narrative: narrative,
+    location: reportData.location || 'Oil India Plant Unit',
     reporterName: reportData.reporterName || reportData.reporter_name || 'Safety Observer',
     reporterId: reportData.reporterId || reportData.employee_id || 'EMP-1001',
     department: dept,
-    company: reportData.company || 'SIF Enterprise',
+    company: reportData.company || 'Oil India Limited',
     prediction: pred,
     confidence: isUnrelated ? 0.0 : Number(reportData.confidence || 90.0),
     hazardCategory: category,
-    recommendedActions: isUnrelated ? ['Submit a valid safety report narrative'] : (reportData.recommendedActions || reportData.recommended_actions || []),
+    recommendedActions: recActions,
     executionTimeMs: Number(reportData.executionTimeMs || reportData.execution_time_ms || 135),
     timestamp: reportData.timestamp || reportData.created_at || new Date().toISOString(),
     status: isUnrelated ? 'Unrelated' : pred === 'SIF' ? 'High Risk' : 'Low Risk',
@@ -47,9 +56,11 @@ export const apiSaveReportWithAI = async (reportData, aiData, currentUser) => {
   const userId = currentUser?.id || null;
   const isUnrelated = aiData.prediction === 'Unrelated Input' || aiData.prediction === 'Unrelated';
   const narrative = reportData.narrative || reportData.report || '';
-  const category = isUnrelated ? 'Non-Safety / Off-Topic' : (aiData.hazardCategory || 'Operational Safety');
+  const category = isUnrelated ? 'Non-Safety / Off-Topic' : (aiData.hazardCategory || reportData.hazardCategory || 'Operational Safety');
   const detectedDept = isUnrelated ? 'General' : detectDepartment(narrative, category);
-  const dept = currentUser?.department || (reportData.department && reportData.department !== 'Operations' ? reportData.department : detectedDept);
+  const dept = reportData.department && reportData.department !== 'Operations' && reportData.department !== 'Industrial Operations'
+    ? reportData.department
+    : (detectedDept !== 'Operations' ? detectedDept : (currentUser?.department || 'Plant Safety Operations'));
 
   const formattedTitle = isUnrelated
     ? 'Off-Topic Non-Safety Query'
@@ -62,10 +73,10 @@ export const apiSaveReportWithAI = async (reportData, aiData, currentUser) => {
     reporter_name: currentUser?.name || reportData.reporterName || 'Safety Observer',
     employee_id: currentUser?.employeeId || currentUser?.officerId || reportData.reporterId || 'EMP-1001',
     department: dept,
-    company: currentUser?.company || reportData.company || 'SIF Enterprise',
+    company: currentUser?.company || reportData.company || 'Oil India Limited',
     title: formattedTitle,
     incident_date: reportData.incidentDate || new Date().toISOString(),
-    location: reportData.location || 'Distillation Unit 4',
+    location: reportData.location || 'Oil India Field Site',
     narrative: narrative,
     evidence_url: reportData.evidence || null,
     status: isUnrelated ? 'Rejected — Off-Topic' : (reportData.reviewStatus || 'Submitted'),

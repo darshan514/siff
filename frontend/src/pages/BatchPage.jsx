@@ -127,20 +127,30 @@ export const BatchPage = () => {
 
       const insights = analyzeHazardInsights(englishReport, res.prediction, lang);
       const fullItem = {
-        id: Date.now() + i,
+        id: `batch-${Date.now()}-${i}`,
+        title: `Batch Observation #${i + 1}`,
         report,
+        narrative: report,
         prediction: res.prediction,
         confidence: res.confidence,
-        executionTimeMs: res.executionTimeMs,
+        executionTimeMs: res.executionTimeMs || 135,
         timestamp: res.timestamp || new Date().toISOString(),
-        category: insights.primaryCategory,
+        department: insights.primaryCategory || 'Operations',
+        hazardCategory: insights.primaryCategory || 'General Safety',
+        category: insights.primaryCategory || 'General Safety',
         severity: insights.riskLevel,
+        location: 'Oil India Field Site',
+        reporterName: 'Batch Ingestion Engine',
+        reporterId: 'BATCH-INGEST',
+        company: 'Oil India Limited',
+        recommendedActions: insights.recommendedPPE || [],
+        reviewStatus: 'Submitted',
       };
 
       results.push(fullItem);
-      addPrediction(fullItem);
+      await addPrediction(fullItem);
       setProgress({ current: i + 1, total: reports.length });
-      await new Promise((r) => setTimeout(r, 180));
+      await new Promise((r) => setTimeout(r, 60));
     }
 
     setBatchResults(results);

@@ -27,7 +27,7 @@ export const HistoryTable = ({ history = [], onDelete, onClearAll }) => {
 
   const [searchTerm, setSearchTerm] = useState('');
   const [filterRisk, setFilterRisk] = useState('ALL');
-  const [filterStatus, setFilterStatus] = useState('OPEN');
+  const [filterStatus, setFilterStatus] = useState('ALL');
   const [filterDepartments, setFilterDepartments] = useState(['ALL']);
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
@@ -40,8 +40,9 @@ export const HistoryTable = ({ history = [], onDelete, onClearAll }) => {
   const filteredHistory = useMemo(() => {
     return history
       .filter((item) => {
+        const textToSearch = (item.report || item.narrative || '');
         const matchesSearch =
-          (item.report || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+          textToSearch.toLowerCase().includes(searchTerm.toLowerCase()) ||
           (item.title || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
           (item.department || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
           (item.location || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -58,7 +59,7 @@ export const HistoryTable = ({ history = [], onDelete, onClearAll }) => {
         const catLow = filterCat.toLowerCase();
         const deptLow = (item.department || 'operations').toLowerCase();
         const hazLow = (item.hazardCategory || '').toLowerCase();
-        const reportLow = (item.report || item.narrative || '').toLowerCase();
+        const reportLow = textToSearch.toLowerCase();
         
         if (catLow === 'fire & gas') return hazLow.includes('fire') || hazLow.includes('gas') || reportLow.includes('fire') || reportLow.includes('gas') || deptLow.includes('fire') || deptLow.includes('gas');
         if (catLow === 'mechanical & lifting') return hazLow.includes('mechanic') || hazLow.includes('lift') || reportLow.includes('mechanic') || reportLow.includes('lift') || deptLow.includes('mechanic') || deptLow.includes('lift');
@@ -327,7 +328,8 @@ export const HistoryTable = ({ history = [], onDelete, onClearAll }) => {
             <tbody className="divide-y divide-slate-200/60 font-medium text-slate-700">
               {paginatedItems.length > 0 ? (
                 paginatedItems.map((item) => {
-                  const iogp = detectIOGPRule(item.report);
+                  const reportText = item.report || item.narrative || '';
+                  const iogp = detectIOGPRule(reportText);
                   return (
                     <tr key={item.id} className="hover:bg-white/80 transition-colors">
                       <td className="p-4 whitespace-nowrap text-slate-900 font-mono font-bold text-[11px]">
@@ -336,7 +338,7 @@ export const HistoryTable = ({ history = [], onDelete, onClearAll }) => {
                       </td>
                       <td className="p-4 max-w-xs sm:max-w-md">
                         <p className="font-bold text-slate-900 line-clamp-1">{item.title || t('form_narrative_label', 'Safety Incident Observation')}</p>
-                        <p className="text-[11px] text-slate-500 line-clamp-1">{item.report}</p>
+                        <p className="text-[11px] text-slate-500 line-clamp-1">{reportText}</p>
                         <div className="flex items-center gap-2 mt-1">
                           <span className="text-[10px] font-extrabold text-[#FF5E3A] bg-[#FF5E3A]/10 px-2 py-0.5 rounded-full flex items-center gap-1">
                             <span className="material-symbols-outlined text-[12px]">{iogp.icon}</span>

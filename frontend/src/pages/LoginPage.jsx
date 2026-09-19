@@ -131,11 +131,56 @@ export const LoginPage = () => {
             <span className="material-symbols-outlined text-base">login</span>
             <span>{isLoading ? t('analyzing', 'Authenticating...') : t('login', 'Sign In')}</span>
           </button>
-          
-          
         </form>
 
-        
+        {/* Quick Demo Sign-In Buttons */}
+        <div className="pt-2 border-t border-slate-200/60 space-y-2">
+          <p className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 text-center">
+            ⚡ Quick Demo Sign-In (1-Click)
+          </p>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              disabled={isLoading}
+              onClick={async () => {
+                setActiveRole('admin');
+                setEmail('darshann@gmail.com');
+                setPassword('123456');
+                setErrorMsg(null);
+                try {
+                  const logged = await login('darshann@gmail.com', '123456', 'admin');
+                  navigate('/officer-dashboard');
+                } catch (e) {
+                  setErrorMsg(e.message);
+                }
+              }}
+              className="px-3 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-[11px] shadow-sm flex items-center justify-center gap-1 transition-all"
+            >
+              <span className="material-symbols-outlined text-sm text-[#FF5E3A]">shield_person</span>
+              <span>Officer Demo</span>
+            </button>
+            <button
+              type="button"
+              disabled={isLoading}
+              onClick={async () => {
+                setActiveRole('worker');
+                setEmail('kamalesh@gmail.com');
+                setPassword('123456');
+                setErrorMsg(null);
+                try {
+                  const logged = await login('kamalesh@gmail.com', '123456', 'worker');
+                  navigate('/employee-dashboard');
+                } catch (e) {
+                  setErrorMsg(e.message);
+                }
+              }}
+              className="px-3 py-2 rounded-xl bg-white hover:bg-slate-50 border border-slate-300 text-slate-800 font-bold text-[11px] shadow-sm flex items-center justify-center gap-1 transition-all"
+            >
+              <span className="material-symbols-outlined text-sm text-blue-600">engineering</span>
+              <span>Worker Demo</span>
+            </button>
+          </div>
+        </div>
 
         <div className="pt-2 text-center text-xs text-slate-500 font-medium">
           Don't have an account?{' '}
