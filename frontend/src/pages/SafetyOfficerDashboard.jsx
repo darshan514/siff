@@ -15,8 +15,9 @@ import EarlyWarningAlerts from '../components/intelligence/EarlyWarningAlerts';
 import WhatIfSimulator from '../components/intelligence/WhatIfSimulator';
 import ActionTrackingBoard from '../components/intelligence/ActionTrackingBoard';
 import RoleViewSelector from '../components/intelligence/RoleViewSelector';
+import AutonomousHazopAgent from '../components/intelligence/AutonomousHazopAgent';
 import { generateEarlyWarningAlerts } from '../utils/decisionIntelligence';
-import { BellRing, Sliders, CheckSquare, LayoutDashboard, Search } from 'lucide-react';
+import { BellRing, Sliders, CheckSquare, LayoutDashboard, Search, Bot } from 'lucide-react';
 
 export const SafetyOfficerDashboard = () => {
   const navigate = useNavigate();
@@ -241,6 +242,19 @@ export const SafetyOfficerDashboard = () => {
             <CheckSquare className="w-4 h-4" />
             <span>Action Tracking Register</span>
           </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab('HAZOP_AGENT')}
+            className={`flex items-center gap-2 px-5 py-2.5 rounded-2xl text-xs font-extrabold transition-all ${
+              activeTab === 'HAZOP_AGENT'
+                ? 'bg-gradient-to-r from-orange-600 to-amber-600 text-white shadow-md'
+                : 'bg-white/80 text-slate-600 hover:text-slate-900 hover:bg-white border border-slate-200/60'
+            }`}
+          >
+            <Bot className="w-4 h-4 text-amber-300" />
+            <span>LangGraph HAZOP Agent</span>
+          </button>
         </div>
       </div>
 
@@ -358,6 +372,11 @@ export const SafetyOfficerDashboard = () => {
       {/* TAB 4: ACTION TRACKING REGISTER */}
       {activeTab === 'ACTIONS' && (
         <ActionTrackingBoard />
+      )}
+
+      {/* TAB 5: AUTONOMOUS LANGGRAPH HAZOP AGENT */}
+      {activeTab === 'HAZOP_AGENT' && (
+        <AutonomousHazopAgent />
       )}
     </motion.div>
   );

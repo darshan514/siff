@@ -59,10 +59,25 @@ export const predictSIFRisk = async (reportText) => {
   }
 
   try {
-    // Make request to backend API
-    const response = await apiClient.post('/predict', {
-      report: reportText.trim(),
-    });
+    // Make request to backend API with automatic host fallback
+    let response;
+    try {
+      response = await apiClient.post('/predict', {
+        report: reportText.trim(),
+      });
+    } catch (primaryErr) {
+      // If primary failed due to network / host mismatch (e.g. 127.0.0.1 vs localhost), retry with alternate host
+      if (!primaryErr.response) {
+        const altUrl = API_BASE_URL.includes('127.0.0.1')
+          ? API_BASE_URL.replace('127.0.0.1', 'localhost')
+          : 'http://127.0.0.1:8000';
+        response = await axios.post(`${altUrl}/predict`, {
+          report: reportText.trim(),
+        }, { timeout: 10000 });
+      } else {
+        throw primaryErr;
+      }
+    }
 
     const endTime = performance.now();
     const executionTimeMs = Math.round(endTime - startTime);

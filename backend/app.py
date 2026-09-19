@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from transformers import DistilBertTokenizer, DistilBertForSequenceClassification, BertTokenizer, BertForSequenceClassification
 from database import engine, Base
-from routers import auth_router, reports_router
+from routers import auth_router, reports_router, investigation_router
 
 # Initialize Database
 Base.metadata.create_all(bind=engine)
@@ -27,12 +27,14 @@ else:
         "http://127.0.0.1:3000",
         "http://localhost:5173",
         "http://127.0.0.1:5173",
-        "*"
+        "http://localhost:8000",
+        "http://127.0.0.1:8000",
     ]
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
+    allow_origin_regex=r"^https?://(localhost|127\.0\.0\.1)(:[0-9]+)?$",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -150,14 +152,22 @@ def is_safety_related(text: str) -> bool:
     return False
 
 CRITICAL_SIF_PRECURSORS = [
+    # Fire, Explosion & Thermal Hazards
+    "fire", "fire injury", "burn", "burns", "burned", "explosion", "blast", "flame", "flash fire",
+    "thermal burn", "ignited", "catching fire", "conflagration", "bleve",
+    # Toxic Gas & Chemical Release
     "gas mask", "gas chamber", "toxic gas", "h2s", "breathing apparatus", "respirator",
-    "confined space", "unoxygenated", "oxygen deficient", "manhole", "tank entry",
+    "confined space", "unoxygenated", "oxygen deficient", "manhole", "tank entry", "asphyxiation",
+    "flammable vapor", "explosion hazard", "toxic vapor", "chemical burn",
+    # Working at Height & Gravity
     "fall from height", "without harness", "unanchored", "unhooked harness", "scaffold without railing",
-    "missing toe board", "scaffold collapse", "live wire", "high voltage", "uninsulated",
-    "energized panel", "bypassed loto", "lockout tagout bypassed", "arc flash",
-    "suspended load", "rigging failure", "snapped cable", "crane collapse",
-    "flammable vapor", "explosion hazard", "trench cave", "trench collapse",
-    "amputation", "unguarded blade", "crushed by", "caught between", "pipeline burst"
+    "missing toe board", "scaffold collapse", "suspended load", "rigging failure", "snapped cable", "crane collapse",
+    # Hazardous Energy & Electrical
+    "live wire", "high voltage", "uninsulated", "energized panel", "bypassed loto", "lockout tagout bypassed",
+    "arc flash", "electrocution", "electric shock",
+    # Mechanical & Trenching
+    "trench cave", "trench collapse", "amputation", "unguarded blade", "crushed by", "caught between",
+    "pipeline burst", "severe injury", "fracture", "head injury", "fatality", "fatal"
 ]
 
 @app.post("/predict")
@@ -213,3 +223,4 @@ def predict(data: ReportModel):
 # Mount Routers
 app.include_router(auth_router.router, prefix="/api")
 app.include_router(reports_router.router, prefix="/api/reports")
+app.include_router(investigation_router.router, prefix="/api/agent")

@@ -204,11 +204,14 @@ export const extractEntities = (text = '', existingLocation = '', existingDept =
   else if (lower.includes("scaffold")) asset = "Elevated Scaffolding Bay #4";
   else if (lower.includes("crane")) asset = "Hydraulic Crane 40T (Yard)";
   else if (lower.includes("tank")) asset = "Crude Storage Tank T-104";
+  else if (lower.includes("fire") || lower.includes("burn") || lower.includes("flare") || lower.includes("furnace")) asset = "Furnace & Process Combustion Unit #2";
+  else if (lower.includes("injury") || lower.includes("injured") || lower.includes("worker")) asset = "Field Workstation & Crew Station";
 
   // Department
   let department = existingDept || "Operations";
-  if (lower.includes("electr") || lower.includes("voltage") || lower.includes("panel") || lower.includes("loto")) department = "Electrical";
-  else if (lower.includes("fire") || lower.includes("gas") || lower.includes("leak") || lower.includes("h2s")) department = "Fire & Gas";
+  if (lower.includes("fire") || lower.includes("burn") || lower.includes("gas") || lower.includes("leak") || lower.includes("h2s")) department = "Fire & Gas";
+  else if (lower.includes("injury") || lower.includes("injured") || lower.includes("trauma")) department = "HSE & Health Safety";
+  else if (lower.includes("electr") || lower.includes("voltage") || lower.includes("panel") || lower.includes("loto")) department = "Electrical";
   else if (lower.includes("crane") || lower.includes("mechanic") || lower.includes("pump") || lower.includes("lifting")) department = "Mechanical & Lifting";
   else if (lower.includes("scaffold") || lower.includes("height") || lower.includes("ladder") || lower.includes("fall")) department = "Civil & Height";
   else if (lower.includes("spill") || lower.includes("ppe") || lower.includes("waste") || lower.includes("effluent")) department = "HSE / Environmental";
@@ -363,9 +366,17 @@ export const generateExplainableExplanation = (reportText, prediction, riskScore
     bullets.push("No mitigating engineering barriers or protective controls were documented in the narrative.");
   }
 
-  const plainLanguage = isSIF
-    ? `This observation is classified as ${riskScore.level} risk because the narrative contains indicators aligned with high-consequence industrial precursors (e.g. hazardous energy, potential fall, or atmospheric toxicity). Without immediate supervisor inspection and barrier validation, this condition poses an estimated ${riskScore.probability}% probability of escalating into a formal work stoppage or severe incident.`
-    : `This observation is evaluated as ${riskScore.level} risk. It represents a routine operational condition or minor hazard that can be mitigated through standard housekeeping, shift walkarounds, and routine work-order scheduling.`;
+  const lowerReport = (reportText || '').toLowerCase();
+  let plainLanguage = '';
+  if (lowerReport.includes("fire") || lowerReport.includes("burn") || lowerReport.includes("flame") || lowerReport.includes("explosion")) {
+    plainLanguage = `This observation is classified as ${riskScore.level} risk because the narrative documents a direct fire, thermal flash, or explosion hazard. Uncontrolled thermal radiation in hydrocarbon processing zones carries immediate fatality and facility escalation potential. Under DGMS Oil Mines Regulations 2017 and OISD-STD-116, immediate deluge verification, feed isolation, and formal incident investigation are mandatory.`;
+  } else if (lowerReport.includes("injury") || lowerReport.includes("injured") || lowerReport.includes("trauma") || lowerReport.includes("fracture")) {
+    plainLanguage = `This observation is classified as ${riskScore.level} risk due to reported personnel injury resulting from energy barrier breach. Immediate medical evacuation, casualty triage at Duliajan Hospital, and statutory DGMS Form IV reporting are active requirements.`;
+  } else if (isSIF) {
+    plainLanguage = `This observation is classified as ${riskScore.level} risk because the narrative contains indicators aligned with high-consequence industrial precursors (e.g. hazardous energy, potential fall, or atmospheric toxicity). Without immediate supervisor inspection and barrier validation, this condition poses an estimated ${riskScore.probability}% probability of escalating into a formal work stoppage or severe incident.`;
+  } else {
+    plainLanguage = `This observation is evaluated as ${riskScore.level} risk. It represents a routine operational condition or minor hazard that can be mitigated through standard housekeeping, shift walkarounds, and routine work-order scheduling.`;
+  }
 
   return {
     summary: plainLanguage,
@@ -380,6 +391,38 @@ export const analyzeRootCauses = (narrative = '', prediction = 'SIF', category =
   const lower = narrative.toLowerCase();
   const entities = extractEntities(narrative);
   const possibleCauses = [];
+
+  // Hypothesis: Fire, Flash Combustion & Thermal Exposure Hazard
+  if (lower.includes("fire") || lower.includes("burn") || lower.includes("explosion") || lower.includes("blast") || lower.includes("flame") || lower.includes("ignit") || lower.includes("hot work")) {
+    possibleCauses.push({
+      id: "RC_FIRE_EXPLOSION",
+      title: "Ignition Source Control Failure / Combustible Atmosphere Flash Fire",
+      confidence: 94,
+      category: "Thermal & Fire Exposure",
+      description: `Uncontrolled fire or thermal flash hazard identified at ${entities.asset} with direct danger of personnel burn injuries and rapid combustion spread.`,
+      evidence: [
+        "Explicit fire, combustion flame, or thermal burn exposure documented in observation.",
+        "Failure or absence of OISD-STD-116 deluge barrier or explosive LEL gas boundary testing.",
+        "Critical fatality and major facility destruction profile mapped to IOGP Life-Saving Rule #5 (Hot Work)."
+      ]
+    });
+  }
+
+  // Hypothesis: Acute Workplace Injury & Bodily Harm
+  if (lower.includes("injury") || lower.includes("injured") || lower.includes("wound") || lower.includes("trauma") || lower.includes("fracture") || lower.includes("bleed") || lower.includes("cut") || lower.includes("hurt")) {
+    possibleCauses.push({
+      id: "RC_ACUTE_INJURY",
+      title: "Direct Personnel Injury & Energy Containment Breach",
+      confidence: 93,
+      category: "Life Safety & Trauma Impact",
+      description: `Worker sustained direct bodily harm requiring immediate medical stabilization, trauma triage, and DGMS statutory reporting.`,
+      evidence: [
+        "Direct personnel injury logged in observation requiring first-aid or hospital escalation.",
+        "Failure of primary containment or barrier guarding worker from line-of-fire.",
+        "Statutory injury notification required under DGMS Oil Mines Regulations 2017 Form IV."
+      ]
+    });
+  }
 
   // Hypothesis 1: Preventive Maintenance Deficit
   if (lower.includes("fail") || lower.includes("leak") || lower.includes("worn") || lower.includes("overdue") || lower.includes("pump") || lower.includes("vibrat")) {
@@ -497,6 +540,34 @@ export const generateOilIndiaRecommendations = (narrative = '', prediction = 'SI
   const recommendations = [];
 
   const lower = narrative.toLowerCase();
+
+  // Fire & Thermal Emergency Response
+  if (lower.includes("fire") || lower.includes("burn") || lower.includes("explosion") || lower.includes("flame") || lower.includes("ignit")) {
+    recommendations.push({
+      id: "REC-FIRE",
+      action: "Activate Emergency Firewater Deluge & Isolate Combustible Feed Line",
+      priority: "Critical",
+      responsibleTeam: "Fire & Safety Response Squad / Area Superintendent",
+      suggestedDeadline: "Immediate (Zero Delay)",
+      reason: "Active combustion or thermal radiation creates imminent hazard of personnel fatality and structural collapse.",
+      expectedOutcome: "Extinguishes flame source, provides cooling water jacket to adjacent vessels, and prevents vessel rupture.",
+      status: "Pending"
+    });
+  }
+
+  // Emergency Medical / Injury Treatment
+  if (lower.includes("injury") || lower.includes("injured") || lower.includes("burn") || lower.includes("trauma") || lower.includes("wound") || lower.includes("fracture") || lower.includes("bleed")) {
+    recommendations.push({
+      id: "REC-MED",
+      action: "Deploy First-Aid Squad & Emergency Evacuation to Duliajan Hospital",
+      priority: "Critical",
+      responsibleTeam: "Occupational Health Centre (OHC) & Medical Evac",
+      suggestedDeadline: "Immediate (Code Red)",
+      reason: "Urgent medical stabilization for injured personnel to manage trauma, burn shock, and physical containment.",
+      expectedOutcome: "Stabilizes casualty vitals and satisfies mandatory DGMS statutory injury notification within 24h.",
+      status: "Pending"
+    });
+  }
 
   if (lower.includes("pump") || lower.includes("compressor") || lower.includes("vibrat") || lower.includes("leak") || lower.includes("fail")) {
     recommendations.push({

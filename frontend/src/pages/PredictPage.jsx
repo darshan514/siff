@@ -16,12 +16,15 @@ import AudioUploadModal from '../components/intelligence/AudioUploadModal';
 import WhyDetectedCard from '../components/intelligence/WhyDetectedCard';
 import RootCauseAnalysisCard from '../components/intelligence/RootCauseAnalysisCard';
 import PredictiveForecastCard from '../components/intelligence/PredictiveForecastCard';
+import RecurringAlertBanner from '../components/intelligence/RecurringAlertBanner';
+import { triggerConnectedDeviceAlert } from '../utils/deviceAlert';
 import {
   detectOilRiskCategory,
   computeCompositeRiskScore,
   generateExplainableExplanation,
   analyzeRootCauses,
-  generatePredictiveForecast
+  generatePredictiveForecast,
+  extractEntities,
 } from '../utils/decisionIntelligence';
 import { Mic, FileAudio } from 'lucide-react';
 
@@ -44,14 +47,13 @@ export const PredictPage = () => {
   const [errorInfo, setErrorInfo] = useState(null);
   const [toastMessage, setToastMessage] = useState(null);
   const [isDemoMode, setIsDemoMode] = useState(false);
+  const [recurringAlertData, setRecurringAlertData] = useState(null);
 
   const handlePredict = async (useDemoOverride = false) => {
     if (!reportText.trim()) return;
 
     setIsLoading(true);
     setErrorInfo(null);
-
-    const minWait = new Promise((resolve) => setTimeout(resolve, 750));
 
     try {
       // Automatic Translation Layer: Translate non-English input (Tamil/Hindi/Telugu/Kannada) to English for AI Model
@@ -74,8 +76,6 @@ export const PredictPage = () => {
         }
       }
 
-      await minWait;
-
       setResult(apiResult);
 
       // Compute Comprehensive Oil India Decision Intelligence
@@ -94,6 +94,34 @@ export const PredictPage = () => {
       });
 
       const hazardInfo = analyzeHazardInsights(englishText, apiResult.prediction, lang);
+
+      // Check for Recurring SIF Precursor Pattern in Single Case
+      const entities = extractEntities(englishText, location);
+      const lowerText = englishText.toLowerCase();
+      const repeatInHistory = history.filter(h => {
+        const repText = (h.report || h.narrative || '').toLowerCase();
+        const sameAsset = repText.includes(entities.asset.toLowerCase().split(' ')[0]);
+        return sameAsset && h.prediction === 'SIF';
+      }).length;
+
+      const hasRecurringTextSignal = ['three times', 'repeated', 'recurring', 'again', 'recurrent', 'multiple times', 'frequent'].some(w => lowerText.includes(w));
+
+      if ((repeatInHistory >= 1 || hasRecurringTextSignal) && (apiResult.prediction === 'SIF' || compositeScore.score >= 68)) {
+        const totalOccurrences = repeatInHistory + (hasRecurringTextSignal ? 2 : 1);
+        const alertPayload = {
+          asset: entities.asset,
+          repeatCount: Math.max(2, totalOccurrences),
+          location: location || entities.location,
+          department: user?.department || hazardInfo?.primaryCategory || oilCategory?.name || 'Operations',
+          narrative: reportText,
+        };
+        setRecurringAlertData(alertPayload);
+
+        // Dispatches Alert Siren Sound, Mobile Vibration & Device OS Push Notification!
+        triggerConnectedDeviceAlert(alertPayload);
+      } else {
+        setRecurringAlertData(null);
+      }
 
       // Save Incident Report and AI Analysis to State, LocalStorage, and Database
       await addPrediction({
@@ -135,6 +163,7 @@ export const PredictPage = () => {
     setResult(null);
     setDecisionData(null);
     setErrorInfo(null);
+    setRecurringAlertData(null);
   };
 
   return (
@@ -262,6 +291,18 @@ export const PredictPage = () => {
       {/* Prediction Output & Results */}
       {result && !isLoading && (
         <div className="space-y-8">
+          {/* High-Urgency Recurring Alert Banner with Siren & Mobile Haptics */}
+          {recurringAlertData && (
+            <RecurringAlertBanner
+              asset={recurringAlertData.asset}
+              repeatCount={recurringAlertData.repeatCount}
+              location={recurringAlertData.location}
+              department={recurringAlertData.department}
+              narrative={recurringAlertData.narrative}
+              onDismiss={() => setRecurringAlertData(null)}
+            />
+          )}
+
           <PredictionResult
             result={result}
             reportText={reportText}

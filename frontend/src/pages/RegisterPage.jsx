@@ -19,9 +19,9 @@ export const RegisterPage = () => {
     confirmPassword: '',
     employeeId: '',
     officerId: '',
-    department: 'Industrial Operations',
-    company: 'OIL / ONGC Enterprise',
-    designation: 'Chief Safety Inspector',
+    department: 'Operations',
+    company: 'Oil India Limited',
+    designation: 'Safety Officer',
     phone: '',
   });
 
@@ -42,33 +42,36 @@ export const RegisterPage = () => {
       return;
     }
 
+    if (formData.password.length < 6) {
+      setErrorMsg('Password must be at least 6 characters.');
+      return;
+    }
+
     try {
       const payload = {
-        name: formData.name,
-        email: formData.email,
+        name: formData.name.trim(),
+        email: formData.email.trim().toLowerCase(),
         password: formData.password,
-        role: role,
-        employeeId: role === 'worker' ? formData.employeeId : null,
-        officerId: role === 'admin' ? formData.officerId : null,
-        department: formData.department,
-        company: formData.company,
-        designation: role === 'admin' ? formData.designation : null,
-        phone: formData.phone,
+        role: role === 'admin' ? 'admin' : 'worker',
+        employeeId: role === 'worker' ? (formData.employeeId.trim() || 'EMP-100') : null,
+        officerId: role === 'admin' ? (formData.officerId.trim() || 'SO-100') : null,
+        department: formData.department.trim() || 'Operations',
+        company: formData.company.trim() || 'Oil India Limited',
+        designation: role === 'admin' ? (formData.designation.trim() || 'Safety Officer') : 'Field Worker',
+        phone: formData.phone.trim(),
       };
 
-      try {
-        await register(payload);
-        if (role === 'admin') {
-          navigate('/admin-dashboard');
-        } else {
-          navigate('/employee-dashboard');
-        }
-      } catch (err) {
-        setToastMsg(err.message || 'Registration failed.');
-        setToastType('error');
+      await register(payload);
+      if (role === 'admin') {
+        navigate('/officer-dashboard');
+      } else {
+        navigate('/employee-dashboard');
       }
     } catch (err) {
-      setErrorMsg(err.message || 'Failed to register account.');
+      const msg = err.response?.data?.detail || err.message || 'Registration failed. Please check details.';
+      setErrorMsg(msg);
+      setToastMsg(msg);
+      setToastType('error');
     }
   };
 
