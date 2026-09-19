@@ -7,7 +7,9 @@ import { analyzeHazardInsights } from '../utils/hazardAnalyzer';
 import { translateToEnglish } from '../utils/translator';
 import { useLanguage } from '../context/LanguageContext';
 import { motion } from 'framer-motion';
-import { Upload, FileSpreadsheet, Download, RefreshCw, CheckCircle2, Filter, ArrowUpDown } from 'lucide-react';
+import { Upload, FileSpreadsheet, Download, RefreshCw, CheckCircle2, Filter, ArrowUpDown, FileText, Mail, FileAudio } from 'lucide-react';
+import { parseMultiSourceFile, SAMPLE_MULTI_SOURCE } from '../utils/multiSourceParser';
+import AudioUploadModal from '../components/intelligence/AudioUploadModal';
 
 const SAMPLE_BATCH_REPORTS = [
   'Worker fell 6 meters from scaffold due to unanchored lanyard tie-off point',
@@ -25,6 +27,9 @@ export const BatchPage = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [progress, setProgress] = useState({ current: 0, total: 0 });
   const [batchResults, setBatchResults] = useState([]);
+  
+  const [isAudioModalOpen, setIsAudioModalOpen] = useState(false);
+  const [uploadFeedback, setUploadFeedback] = useState(null);
   
   const [sectorFilter, setSectorFilter] = useState('ALL');
   const [sortOrder, setSortOrder] = useState('NONE'); // NONE, SIF_HIGH_LOW, SIF_LOW_HIGH, DATE_NEW_OLD, DATE_OLD_NEW
@@ -55,47 +60,43 @@ export const BatchPage = () => {
     });
   }, [batchResults, sectorFilter, sortOrder]);
 
-  const handleFileUpload = (e) => {
+  const handleFileUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = (evt) => {
-      const content = evt.target.result;
-      const rawLines = content.split('\n').map((l) => l.trim()).filter(Boolean);
-      if (rawLines.length === 0) return;
-
-      let extractedNarratives = [];
-      const header = rawLines[0].toLowerCase();
-
-      // Check if file is a multi-column structured CSV (e.g. contains report_text or commas)
-      if (header.includes(',') && (header.includes('report_text') || header.includes('report_id') || header.includes('narrative'))) {
-        const headerCols = rawLines[0].split(',').map(c => c.trim().toLowerCase().replace(/^"|"$/g, ''));
-        let textColIdx = headerCols.findIndex(c => c === 'report_text' || c === 'report' || c === 'narrative' || c === 'observation');
-        if (textColIdx === -1) textColIdx = 1; // default to 2nd column if report_text name not matched exactly
-
-        for (let i = 1; i < rawLines.length; i++) {
-          // simple CSV split supporting basic quoted values
-          const matches = rawLines[i].match(/(".*?"|[^",\s]+)(?=\s*,|\s*$)/g) || rawLines[i].split(',');
-          if (matches && matches[textColIdx]) {
-            const val = matches[textColIdx].replace(/^"|"$/g, '').trim();
-            if (val.length > 5) extractedNarratives.push(val);
-          }
-        }
-      } else {
-        // Plain line-by-line CSV text
-        extractedNarratives = rawLines
-          .map((l) => l.replace(/^"|"$/g, '').trim())
-          .filter((l) => l.length > 5 && !l.toLowerCase().startsWith('report_id') && !l.toLowerCase().startsWith('incident'));
+    try {
+      const parsed = await parseMultiSourceFile(file);
+      if (parsed.type === 'audio') {
+        setIsAudioModalOpen(true);
+        return;
       }
-
-      setRawText(extractedNarratives.join('\n'));
-    };
-    reader.readAsText(file);
+      if (parsed.rawText) {
+        setRawText(parsed.rawText);
+        setUploadFeedback(`Ingested ${parsed.narratives.length} records from ${parsed.fileName} (${parsed.type.toUpperCase()})`);
+      }
+    } catch (err) {
+      console.warn("Multi-source parser error, falling back:", err);
+      const reader = new FileReader();
+      reader.onload = (evt) => {
+        setRawText(evt.target.result);
+      };
+      reader.readAsText(file);
+    }
   };
 
   const handleLoadSampleBatch = () => {
     setRawText(SAMPLE_BATCH_REPORTS.join('\n'));
+    setUploadFeedback("Loaded 6 Sample Industrial Safety Observations (CSV)");
+  };
+
+  const handleLoadExcelSample = () => {
+    setRawText(SAMPLE_MULTI_SOURCE.EXCEL_MAINTENANCE.join('\n'));
+    setUploadFeedback("Loaded 5 Equipment & Maintenance Records (Excel Format)");
+  };
+
+  const handleLoadEmailSample = () => {
+    setRawText(SAMPLE_MULTI_SOURCE.INCIDENT_EMAIL.join('\n'));
+    setUploadFeedback("Loaded Formal Incident Memo / Email Record");
   };
 
   const runBatchAnalysis = async () => {
@@ -205,20 +206,45 @@ export const BatchPage = () => {
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4 border-b border-slate-200/60 pb-5">
           <div className="flex items-center space-x-2 text-xs font-extrabold text-slate-900">
             <FileSpreadsheet className="w-5 h-5 text-[#FF5E3A]" />
-            <span>{t('batch_input_source', 'Batch Input Source')}</span>
+            <span>{t('batch_input_source', 'Multi-Source Data Ingestion Engine')}</span>
           </div>
 
-          <div className="flex items-center space-x-2">
+          <div className="flex flex-wrap items-center gap-2">
             <button
               onClick={handleLoadSampleBatch}
               disabled={isProcessing}
-              className="px-3.5 py-1.5 rounded-full text-xs font-bold bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 transition-colors shadow-sm disabled:opacity-50"
+              className="px-3 py-1.5 rounded-full text-xs font-bold bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 transition-colors shadow-xs disabled:opacity-50"
             >
-              {t('batch_sample_csv', 'Load Sample Batch CSV')}
+              📄 Sample CSV
+            </button>
+            <button
+              onClick={handleLoadExcelSample}
+              disabled={isProcessing}
+              className="px-3 py-1.5 rounded-full text-xs font-bold bg-emerald-50 border border-emerald-300 text-emerald-800 hover:bg-emerald-100 transition-colors shadow-xs disabled:opacity-50"
+            >
+              📊 Excel Maintenance Log
+            </button>
+            <button
+              onClick={handleLoadEmailSample}
+              disabled={isProcessing}
+              className="px-3 py-1.5 rounded-full text-xs font-bold bg-blue-50 border border-blue-300 text-blue-800 hover:bg-blue-100 transition-colors shadow-xs disabled:opacity-50"
+            >
+              ✉️ Incident Email Memo
+            </button>
+            <button
+              onClick={() => setIsAudioModalOpen(true)}
+              disabled={isProcessing}
+              className="px-3 py-1.5 rounded-full text-xs font-bold bg-purple-50 border border-purple-300 text-purple-800 hover:bg-purple-100 transition-colors shadow-xs disabled:opacity-50 flex items-center gap-1"
+            >
+              <FileAudio className="w-3.5 h-3.5" />
+              <span>🎙️ Audio Memo</span>
             </button>
             {rawText && (
               <button
-                onClick={() => setRawText('')}
+                onClick={() => {
+                  setRawText('');
+                  setUploadFeedback(null);
+                }}
                 disabled={isProcessing}
                 className="px-3 py-1.5 rounded-full text-xs font-bold text-red-600 hover:bg-red-50 transition-colors"
               >
@@ -228,16 +254,25 @@ export const BatchPage = () => {
           </div>
         </div>
 
+        {uploadFeedback && (
+          <div className="p-3 rounded-2xl bg-emerald-50 border border-emerald-200 text-xs font-bold text-emerald-800 flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+            <span>{uploadFeedback}</span>
+          </div>
+        )}
+
         {/* Drag & Drop File Box */}
         <label className="border-2 border-dashed border-slate-300 hover:border-[#FF5E3A] rounded-2xl p-8 flex flex-col items-center justify-center cursor-pointer bg-white/40 hover:bg-white/70 transition-all text-center group">
           <Upload className="w-8 h-8 text-slate-400 group-hover:text-[#FF5E3A] mb-2 transition-colors" />
           <span className="text-xs font-extrabold text-slate-800">
-            {t('batch_dropzone', 'Drag and drop your observation CSV file here, or click to browse')}
+            {t('batch_dropzone', 'Drag and drop your observation file here, or click to browse')}
           </span>
-          <span className="text-[11px] text-slate-400 font-medium mt-1">{t('batch_supports_utf8', 'Supports UTF-8 CSV text file format (1 narrative observation per line)')}</span>
+          <span className="text-[11px] text-slate-400 font-medium mt-1">
+            Supports CSV (.csv), Excel (.xlsx, .xls), Plain Text (.txt, .log), Email records (.eml), and Audio recordings (.mp3, .wav, .m4a)
+          </span>
           <input
             type="file"
-            accept=".csv,.txt"
+            accept=".csv,.xlsx,.xls,.txt,.json,.eml,.mp3,.wav,.m4a"
             onChange={handleFileUpload}
             disabled={isProcessing}
             className="hidden"
@@ -387,6 +422,16 @@ export const BatchPage = () => {
           </div>
         </div>
       )}
+
+      {/* Audio Upload Modal */}
+      <AudioUploadModal
+        isOpen={isAudioModalOpen}
+        onClose={() => setIsAudioModalOpen(false)}
+        onApplyTranscript={(transcript) => {
+          setRawText(prev => prev ? `${prev}\n${transcript}` : transcript);
+          setUploadFeedback("Transcribed audio recording added to batch observation queue.");
+        }}
+      />
     </motion.div>
   );
 };

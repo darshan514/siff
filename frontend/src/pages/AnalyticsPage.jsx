@@ -9,6 +9,7 @@ import RiskHeatMap from '../components/analytics/RiskHeatMap';
 import RecurringPatternDetector from '../components/analytics/RecurringPatternDetector';
 import AIExecutiveSummary from '../components/analytics/AIExecutiveSummary';
 import StatCard from '../components/common/StatCard';
+import ExtendedRiskTrends from '../components/analytics/ExtendedRiskTrends';
 import { useLanguage } from '../context/LanguageContext';
 import { motion } from 'framer-motion';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
@@ -219,6 +220,18 @@ export const AnalyticsPage = () => {
             </div>
           </div>
         </div>
+      </div>
+
+      {/* Enterprise Early-Warning & Risk Horizon Intelligence */}
+      <div className="space-y-4 pt-4">
+        <h2 className="font-display-xl text-2xl font-extrabold text-slate-900 flex items-center gap-2">
+          <span className="material-symbols-outlined text-[#FF5E3A]">
+            analytics
+          </span>
+          <span>Enterprise Early-Warning & Risk Horizon Intelligence</span>
+        </h2>
+
+        <ExtendedRiskTrends history={filteredHistory} />
       </div>
 
       {/* Operational Risk Intelligence Breakdown */}

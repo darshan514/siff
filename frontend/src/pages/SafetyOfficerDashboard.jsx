@@ -11,6 +11,12 @@ import { generateBatchReportPDF } from '../utils/pdfGenerator';
 import { generateBatchReportExcel } from '../utils/excelGenerator';
 import { useLanguage } from '../context/LanguageContext';
 import { motion } from 'framer-motion';
+import EarlyWarningAlerts from '../components/intelligence/EarlyWarningAlerts';
+import WhatIfSimulator from '../components/intelligence/WhatIfSimulator';
+import ActionTrackingBoard from '../components/intelligence/ActionTrackingBoard';
+import RoleViewSelector from '../components/intelligence/RoleViewSelector';
+import { generateEarlyWarningAlerts } from '../utils/decisionIntelligence';
+import { BellRing, Sliders, CheckSquare, LayoutDashboard, Search } from 'lucide-react';
 
 export const SafetyOfficerDashboard = () => {
   const navigate = useNavigate();
@@ -19,6 +25,9 @@ export const SafetyOfficerDashboard = () => {
   const { t } = useLanguage();
   const [selectedDepts, setSelectedDepts] = useState(['ALL']);
   const [customFilteredList, setCustomFilteredList] = useState(null);
+  const [activeTab, setActiveTab] = useState('OVERVIEW'); // OVERVIEW, ALERTS, WHAT_IF, ACTIONS
+  const [activeRole, setActiveRole] = useState('MANAGEMENT'); // MANAGEMENT, OPERATIONS, SAFETY, MAINTENANCE, COMPLIANCE, RISK_TEAM
+  const [searchQuery, setSearchQuery] = useState('');
 
   // Exclude off-topic / unrelated inputs & apply selected department filter
   const validSafetyReports = useMemo(() => {
@@ -42,6 +51,19 @@ export const SafetyOfficerDashboard = () => {
   }, [history, selectedDepts]);
 
   const displayList = customFilteredList || validSafetyReports;
+
+  // Search Filter
+  const searchedDisplayList = useMemo(() => {
+    if (!searchQuery.trim()) return displayList;
+    const q = searchQuery.toLowerCase().trim();
+    return displayList.filter(item => {
+      const text = ((item.title || '') + ' ' + (item.report || item.narrative || '') + ' ' + (item.department || '') + ' ' + (item.location || '') + ' ' + (item.hazardCategory || '')).toLowerCase();
+      return text.includes(q);
+    });
+  }, [displayList, searchQuery]);
+
+  const alerts = useMemo(() => generateEarlyWarningAlerts(history), [history]);
+  const activeAlertsCount = alerts.filter(a => a.status !== 'Resolved' && a.status !== 'Dismissed').length;
 
   const sifReports = validSafetyReports.filter(h => h.prediction === 'SIF');
   const routineReports = validSafetyReports.filter(h => h.prediction !== 'SIF');
@@ -158,75 +180,185 @@ export const SafetyOfficerDashboard = () => {
         </div>
       </div>
 
-
-      {/* Main Stat Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-        <StatCard
-          title={t('total_reports', 'Total Safety Observations')}
-          value={totalPlantReports}
-          subtitle={t('submitted_all_shifts', 'Submitted across all shifts')}
-          color="blue"
-        />
-
-        <StatCard
-          title={t('sif_precursors', 'Critical SIF Precursors')}
-          value={sifReports.length}
-          subtitle={`${sifRate}% ${t('precursor_ratio', 'Precursor Ratio')}`}
-          color="red"
-        />
-
-        <StatCard
-          title={t('low_risk_count', 'Low Risk Observations')}
-          value={routineReports.length}
-          subtitle={t('routine_safety_items', 'Routine Safety Items')}
-          color="green"
-        />
-
-        <StatCard
-          title={t('distilbert_accuracy', 'DistilBERT Model Accuracy')}
-          value="98.4%"
-          subtitle={t('nlp_classification_model', 'NLP Classification Model')}
-          color="teal"
-        />
-      </div>
-
-      {/* AI Executive Safety Briefing */}
-      <AIExecutiveSummary history={validSafetyReports} />
-
-      {/* Plant & Sector Precursor Heat Map */}
-      <RiskHeatMap history={validSafetyReports} />
-
-      {/* Department Filter Bar */}
-      <div className="flex flex-wrap items-center gap-2 bg-white/60 p-2.5 rounded-2xl border border-white/80 backdrop-blur-xl shadow-sm text-xs font-extrabold">
-        <span className="text-slate-500 px-3 uppercase tracking-wider text-[10px]">{t('filter_department', 'Filter Department:')}</span>
-        {DEPARTMENTS.map((dept) => (
+      {/* Early Warning & Decision Intelligence Navigation Tabs */}
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200/80 pb-4">
+        <div className="flex flex-wrap items-center gap-2">
           <button
-            key={dept.id}
-            onClick={() => toggleDept(dept.id)}
-            className={`px-3.5 py-1.5 rounded-xl transition-all ${
-              selectedDepts.includes(dept.id) && !customFilteredList
-                ? 'bg-[#FF5E3A] text-white shadow-sm'
-                : 'text-slate-600 hover:text-slate-900 hover:bg-white/80'
+            type="button"
+            onClick={() => setActiveTab('OVERVIEW')}
+            className={`flex items-center gap-2 px-5 py-2.5 rounded-2xl text-xs font-extrabold transition-all ${
+              activeTab === 'OVERVIEW'
+                ? 'bg-slate-900 text-white shadow-md'
+                : 'bg-white/80 text-slate-600 hover:text-slate-900 hover:bg-white border border-slate-200/60'
             }`}
           >
-            {dept.label}
+            <LayoutDashboard className="w-4 h-4 text-[#FF5E3A]" />
+            <span>Overview & Risk Register</span>
           </button>
-        ))}
+
+          <button
+            type="button"
+            onClick={() => setActiveTab('ALERTS')}
+            className={`flex items-center gap-2 px-5 py-2.5 rounded-2xl text-xs font-extrabold transition-all relative ${
+              activeTab === 'ALERTS'
+                ? 'bg-red-600 text-white shadow-md'
+                : 'bg-white/80 text-slate-600 hover:text-slate-900 hover:bg-white border border-slate-200/60'
+            }`}
+          >
+            <BellRing className="w-4 h-4" />
+            <span>Early Warning Alerts</span>
+            {activeAlertsCount > 0 && (
+              <span className={`px-2 py-0.2 rounded-full text-[10px] font-black ${
+                activeTab === 'ALERTS' ? 'bg-white text-red-600' : 'bg-red-600 text-white'
+              }`}>
+                {activeAlertsCount}
+              </span>
+            )}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab('WHAT_IF')}
+            className={`flex items-center gap-2 px-5 py-2.5 rounded-2xl text-xs font-extrabold transition-all ${
+              activeTab === 'WHAT_IF'
+                ? 'bg-cyan-700 text-white shadow-md'
+                : 'bg-white/80 text-slate-600 hover:text-slate-900 hover:bg-white border border-slate-200/60'
+            }`}
+          >
+            <Sliders className="w-4 h-4" />
+            <span>What-If Simulation Lab</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab('ACTIONS')}
+            className={`flex items-center gap-2 px-5 py-2.5 rounded-2xl text-xs font-extrabold transition-all ${
+              activeTab === 'ACTIONS'
+                ? 'bg-emerald-700 text-white shadow-md'
+                : 'bg-white/80 text-slate-600 hover:text-slate-900 hover:bg-white border border-slate-200/60'
+            }`}
+          >
+            <CheckSquare className="w-4 h-4" />
+            <span>Action Tracking Register</span>
+          </button>
+        </div>
       </div>
 
-      {/* Master Audit Log Table */}
-      <div className="space-y-4 pt-4">
-        <h2 className="font-display-xl text-2xl font-extrabold text-slate-900 flex items-center gap-2">
-          <span className="material-symbols-outlined text-[#FF5E3A]">fact_check</span>
-          <span>{t('master_observation_registry', 'Master Observation Registry & Review Queue')}</span>
-        </h2>
+      {/* Role-Based Perspective Selector */}
+      <RoleViewSelector
+        activeRole={activeRole}
+        onRoleChange={(r) => setActiveRole(r)}
+      />
 
-        <HistoryTable
-          history={displayList}
-          onDelete={deletePrediction}
-          onClearAll={clearHistory}
-        />
-      </div>
+      {/* TAB 1: OVERVIEW & MASTER RISK REGISTER (EXISTING SIF VIEW EXTENDED) */}
+      {activeTab === 'OVERVIEW' && (
+        <div className="space-y-8">
+          {/* Main Stat Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+            <StatCard
+              title={t('total_reports', 'Total Safety Observations')}
+              value={totalPlantReports}
+              subtitle={t('submitted_all_shifts', 'Submitted across all shifts')}
+              color="blue"
+            />
+
+            <StatCard
+              title={t('sif_precursors', 'Critical SIF Precursors')}
+              value={sifReports.length}
+              subtitle={`${sifRate}% ${t('precursor_ratio', 'Precursor Ratio')}`}
+              color="red"
+            />
+
+            <StatCard
+              title={t('low_risk_count', 'Low Risk Observations')}
+              value={routineReports.length}
+              subtitle={t('routine_safety_items', 'Routine Safety Items')}
+              color="green"
+            />
+
+            <StatCard
+              title={t('distilbert_accuracy', 'DistilBERT Model Accuracy')}
+              value="98.4%"
+              subtitle={t('nlp_classification_model', 'NLP Classification Model')}
+              color="teal"
+            />
+          </div>
+
+          {/* AI Executive Safety Briefing */}
+          <AIExecutiveSummary history={validSafetyReports} />
+
+          {/* Plant & Sector Precursor Heat Map */}
+          <RiskHeatMap history={validSafetyReports} />
+
+          {/* Multi-Faceted Filter & Search Bar */}
+          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-3 bg-white/60 p-3 rounded-2xl border border-white/80 backdrop-blur-xl shadow-sm text-xs font-extrabold">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-slate-500 px-2 uppercase tracking-wider text-[10px]">{t('filter_department', 'Filter Department:')}</span>
+              {DEPARTMENTS.map((dept) => (
+                <button
+                  key={dept.id}
+                  onClick={() => toggleDept(dept.id)}
+                  className={`px-3 py-1.5 rounded-xl transition-all ${
+                    selectedDepts.includes(dept.id) && !customFilteredList
+                      ? 'bg-[#FF5E3A] text-white shadow-sm'
+                      : 'text-slate-600 hover:text-slate-900 hover:bg-white/80'
+                  }`}
+                >
+                  {dept.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Global Search Bar */}
+            <div className="relative w-full md:w-64">
+              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search asset, ID, or hazard..."
+                className="w-full pl-9 pr-3.5 py-1.5 rounded-xl bg-white border border-slate-200 text-xs font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#FF5E3A]/40 shadow-xs"
+              />
+            </div>
+          </div>
+
+          {/* Master Audit Log Table */}
+          <div className="space-y-4 pt-2">
+            <div className="flex items-center justify-between">
+              <h2 className="font-display-xl text-2xl font-extrabold text-slate-900 flex items-center gap-2">
+                <span className="material-symbols-outlined text-[#FF5E3A]">fact_check</span>
+                <span>{t('master_observation_registry', 'Master Observation Registry & Review Queue')}</span>
+              </h2>
+              {searchQuery && (
+                <span className="text-xs font-bold text-slate-500">
+                  Showing {searchedDisplayList.length} matching observations
+                </span>
+              )}
+            </div>
+
+            <HistoryTable
+              history={searchedDisplayList}
+              onDelete={deletePrediction}
+              onClearAll={clearHistory}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* TAB 2: EARLY-WARNING ALERTS */}
+      {activeTab === 'ALERTS' && (
+        <EarlyWarningAlerts alerts={alerts} />
+      )}
+
+      {/* TAB 3: WHAT-IF SIMULATION LAB */}
+      {activeTab === 'WHAT_IF' && (
+        <WhatIfSimulator initialRiskScore={riskIndex?.score || 75} />
+      )}
+
+      {/* TAB 4: ACTION TRACKING REGISTER */}
+      {activeTab === 'ACTIONS' && (
+        <ActionTrackingBoard />
+      )}
     </motion.div>
   );
 };

@@ -12,11 +12,23 @@ import LoadingSpinner from '../components/common/LoadingSpinner';
 import Toast from '../components/common/Toast';
 import { useLanguage } from '../context/LanguageContext';
 import { motion } from 'framer-motion';
+import AudioUploadModal from '../components/intelligence/AudioUploadModal';
+import WhyDetectedCard from '../components/intelligence/WhyDetectedCard';
+import RootCauseAnalysisCard from '../components/intelligence/RootCauseAnalysisCard';
+import PredictiveForecastCard from '../components/intelligence/PredictiveForecastCard';
+import {
+  detectOilRiskCategory,
+  computeCompositeRiskScore,
+  generateExplainableExplanation,
+  analyzeRootCauses,
+  generatePredictiveForecast
+} from '../utils/decisionIntelligence';
+import { Mic, FileAudio } from 'lucide-react';
 
 export const PredictPage = () => {
   const { user, isSafetyOfficer } = useAuth();
   const navigate = useNavigate();
-  const { addPrediction } = usePredictions();
+  const { history, addPrediction } = usePredictions();
   const { lang, t } = useLanguage();
 
   // Form State
@@ -27,6 +39,8 @@ export const PredictPage = () => {
   // AI & Submission State
   const [isLoading, setIsLoading] = useState(false);
   const [result, setResult] = useState(null);
+  const [decisionData, setDecisionData] = useState(null);
+  const [isAudioModalOpen, setIsAudioModalOpen] = useState(false);
   const [errorInfo, setErrorInfo] = useState(null);
   const [toastMessage, setToastMessage] = useState(null);
   const [isDemoMode, setIsDemoMode] = useState(false);
@@ -64,6 +78,21 @@ export const PredictPage = () => {
 
       setResult(apiResult);
 
+      // Compute Comprehensive Oil India Decision Intelligence
+      const oilCategory = detectOilRiskCategory(englishText);
+      const compositeScore = computeCompositeRiskScore(apiResult.prediction, apiResult.confidence, englishText, history);
+      const xaiData = generateExplainableExplanation(englishText, apiResult.prediction, compositeScore, oilCategory, compositeScore.factors);
+      const rootCauses = analyzeRootCauses(englishText, apiResult.prediction, oilCategory, history);
+      const forecast = generatePredictiveForecast(compositeScore, englishText);
+
+      setDecisionData({
+        oilCategory,
+        compositeScore,
+        xaiData,
+        rootCauses,
+        forecast
+      });
+
       const hazardInfo = analyzeHazardInsights(englishText, apiResult.prediction, lang);
 
       // Save Incident Report and AI Analysis to database
@@ -79,7 +108,7 @@ export const PredictPage = () => {
           company: user?.company || 'SIF Enterprise',
           prediction: apiResult.prediction,
           confidence: apiResult.confidence,
-          hazardCategory: hazardInfo?.primaryCategory || 'General Hazard',
+          hazardCategory: hazardInfo?.primaryCategory || oilCategory?.name || 'General Hazard',
           recommendedActions: hazardInfo?.recommendedPPE || [],
           executionTimeMs: apiResult.executionTimeMs || 135,
           timestamp: new Date().toISOString(),
@@ -108,6 +137,7 @@ export const PredictPage = () => {
     setLocation('');
     setReportText('');
     setResult(null);
+    setDecisionData(null);
     setErrorInfo(null);
   };
 
@@ -176,6 +206,22 @@ export const PredictPage = () => {
         </div>
       )}
 
+      {/* Multi-Source Quick Action Banner */}
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-white/60 p-3.5 rounded-2xl border border-white/80 backdrop-blur-xl shadow-xs text-xs font-bold text-slate-700">
+        <div className="flex items-center gap-2">
+          <span className="material-symbols-outlined text-[#FF5E3A] text-base">hub</span>
+          <span>Multi-Source Ingestion Active (Direct Narrative, Microphones, Audio Voice Memos)</span>
+        </div>
+        <button
+          type="button"
+          onClick={() => setIsAudioModalOpen(true)}
+          className="px-4 py-2 rounded-xl bg-white hover:bg-slate-50 border border-slate-200 text-slate-800 shadow-xs flex items-center gap-1.5 transition-all hover:border-[#FF5E3A]/40 shrink-0"
+        >
+          <FileAudio className="w-4 h-4 text-[#FF5E3A]" />
+          <span>Upload Audio Recording (Speech-to-Text)</span>
+        </button>
+      </div>
+
       {/* Main Form Component */}
       <PredictionForm
         title={title}
@@ -233,8 +279,45 @@ export const PredictPage = () => {
             reportText={reportText}
             onReset={handleClear}
           />
+
+          {decisionData && (
+            <>
+              {/* Explainable AI: Why Was This Detected? */}
+              <WhyDetectedCard
+                xaiData={decisionData.xaiData}
+                riskScore={decisionData.compositeScore}
+                prediction={result.prediction}
+              />
+
+              {/* Evidence-Based Root Cause Hypotheses */}
+              <RootCauseAnalysisCard
+                rootCauses={decisionData.rootCauses}
+              />
+
+              {/* Predictive Horizon Forecast */}
+              <PredictiveForecastCard
+                forecast={decisionData.forecast}
+                riskScore={decisionData.compositeScore}
+              />
+            </>
+          )}
         </div>
       )}
+
+      {/* Audio Upload Speech-to-Text Modal */}
+      <AudioUploadModal
+        isOpen={isAudioModalOpen}
+        onClose={() => setIsAudioModalOpen(false)}
+        onApplyTranscript={(trans, signals) => {
+          setReportText(trans);
+          if (signals?.entities?.asset && !title) {
+            setTitle(`Observation on ${signals.entities.asset}`);
+          }
+          if (signals?.entities?.location && !location) {
+            setLocation(signals.entities.location);
+          }
+        }}
+      />
     </motion.div>
   );
 };
