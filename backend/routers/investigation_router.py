@@ -20,9 +20,16 @@ import time
 from typing import TypedDict, List, Dict, Any, Optional
 from fastapi import APIRouter, HTTPException, BackgroundTasks
 from pydantic import BaseModel
-from langgraph.graph import StateGraph, END
 
-router = APIRouter(tags=["Autonomous Investigation & LangGraph HAZOP"])
+try:
+    from langgraph.graph import StateGraph, END
+    HAS_LANGGRAPH = True
+except Exception:
+    HAS_LANGGRAPH = False
+    StateGraph = None
+    END = None
+
+router = APIRouter(tags=["Autonomous Investigation & HAZOP"])
 
 # =====================================================================
 # 1. KNOWLEDGE BASES: DGMS, OISD, OIL INDIA LOGS, IOGP
@@ -437,36 +444,53 @@ def should_continue(state: HAZOPState) -> str:
     return "refine"
 
 
-# Build the LangGraph
+class FallbackHazopGraph:
+    def invoke(self, state: Dict[str, Any]) -> Dict[str, Any]:
+        curr = investigate_node(state)
+        curr = draft_hazop_node(curr)
+        curr = critique_node(curr)
+        while not curr.get("is_approved") and curr.get("review_iteration", 0) < curr.get("max_iterations", 2):
+            curr = refine_node(curr)
+            curr = critique_node(curr)
+        curr = finalize_node(curr)
+        return curr
+
+# Build the Graph
 def build_hazop_graph():
-    workflow = StateGraph(HAZOPState)
+    if HAS_LANGGRAPH and StateGraph is not None:
+        try:
+            workflow = StateGraph(HAZOPState)
 
-    # Add Nodes
-    workflow.add_node("investigate", investigate_node)
-    workflow.add_node("draft_hazop", draft_hazop_node)
-    workflow.add_node("critique", critique_node)
-    workflow.add_node("refine", refine_node)
-    workflow.add_node("finalize", finalize_node)
+            # Add Nodes
+            workflow.add_node("investigate", investigate_node)
+            workflow.add_node("draft_hazop", draft_hazop_node)
+            workflow.add_node("critique", critique_node)
+            workflow.add_node("refine", refine_node)
+            workflow.add_node("finalize", finalize_node)
 
-    # Define Edges
-    workflow.set_entry_point("investigate")
-    workflow.add_edge("investigate", "draft_hazop")
-    workflow.add_edge("draft_hazop", "critique")
+            # Define Edges
+            workflow.set_entry_point("investigate")
+            workflow.add_edge("investigate", "draft_hazop")
+            workflow.add_edge("draft_hazop", "critique")
 
-    # CYCLIC CONDITIONAL EDGE
-    workflow.add_conditional_edges(
-        "critique",
-        should_continue,
-        {
-            "refine": "refine",
-            "finalize": "finalize"
-        }
-    )
-    # Loop back from refine to critique (Cyclic!)
-    workflow.add_edge("refine", "critique")
-    workflow.add_edge("finalize", END)
+            # CYCLIC CONDITIONAL EDGE
+            workflow.add_conditional_edges(
+                "critique",
+                should_continue,
+                {
+                    "refine": "refine",
+                    "finalize": "finalize"
+                }
+            )
+            # Loop back from refine to critique (Cyclic!)
+            workflow.add_edge("refine", "critique")
+            workflow.add_edge("finalize", END)
 
-    return workflow.compile()
+            return workflow.compile()
+        except Exception as e:
+            print("LangGraph build failed, using fallback:", e)
+
+    return FallbackHazopGraph()
 
 # Instantiate the compiled graph
 hazop_graph = build_hazop_graph()
