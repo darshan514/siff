@@ -1,6 +1,9 @@
 import os
 import torch
-torch.set_num_threads(1)  # Reduce memory footprint on Render Free Tier
+if not os.getenv("RENDER"):
+    torch.set_num_threads(min(4, os.cpu_count() or 4))
+else:
+    torch.set_num_threads(1)  # Reduce memory footprint on Render Free Tier
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -33,8 +36,8 @@ else:
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
-    allow_origin_regex=r"^https?://(localhost|127\.0\.0\.1)(:[0-9]+)?$",
+    allow_origins=origins if allowed_origins_env else ["*"],
+    allow_origin_regex=r"^https?://(localhost|127\.0\.0\.1|.*\.vercel\.app|.*\.onrender\.com)(:[0-9]+)?$",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -189,7 +192,7 @@ def predict(data: ReportModel):
 
     encoding = tokenizer(
         report_text,
-        padding="max_length",
+        padding=True,
         truncation=True,
         max_length=128,
         return_tensors="pt",

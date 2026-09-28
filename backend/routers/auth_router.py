@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File,
 from sqlalchemy.orm import Session
 from database import get_db
 from models import User
-from schemas import UserCreate, UserLogin, Token, UserResponse
+from schemas import UserCreate, UserUpdate, UserLogin, Token, UserResponse
 from auth import get_password_hash, verify_password, create_access_token, get_current_user
 import json
 from datetime import datetime
@@ -75,3 +75,24 @@ def get_me(current_user: User = Depends(get_current_user)):
     user_resp = UserResponse.model_validate(current_user)
     return {"status": "success", "user": user_resp}
 
+@router.put("/me", response_model=dict)
+def update_me(user_update: UserUpdate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    if user_update.name is not None:
+        current_user.full_name = user_update.name
+    if user_update.employeeId is not None:
+        current_user.employee_id = user_update.employeeId
+    elif user_update.officerId is not None:
+        current_user.employee_id = user_update.officerId
+    if user_update.department is not None:
+        current_user.department = user_update.department
+    if user_update.company is not None:
+        current_user.company = user_update.company
+    if user_update.designation is not None:
+        current_user.designation = user_update.designation
+    if user_update.phone is not None:
+        current_user.phone = user_update.phone
+
+    db.commit()
+    db.refresh(current_user)
+    user_resp = UserResponse.model_validate(current_user)
+    return {"status": "success", "user": user_resp}

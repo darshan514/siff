@@ -15,6 +15,15 @@ class UserCreate(BaseModel):
     designation: Optional[str] = None
     phone: Optional[str] = None
 
+class UserUpdate(BaseModel):
+    name: Optional[str] = None
+    employeeId: Optional[str] = None
+    officerId: Optional[str] = None
+    department: Optional[str] = None
+    company: Optional[str] = None
+    designation: Optional[str] = None
+    phone: Optional[str] = None
+
 class UserLogin(BaseModel):
     email: EmailStr
     password: str

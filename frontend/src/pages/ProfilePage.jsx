@@ -3,13 +3,14 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { usePredictions } from '../context/PredictionContext';
 import { useLanguage } from '../context/LanguageContext';
+import { apiUpdateProfile } from '../services/auth';
 import { motion } from 'framer-motion';
 import Toast from '../components/common/Toast';
 
 export const ProfilePage = () => {
   const navigate = useNavigate();
   const { user, setUser, isSafetyOfficer, logout, registerFaceImage } = useAuth();
-  const { history } = usePredictions();
+  const { history, refreshReports } = usePredictions();
   const { t } = useLanguage();
 
   const [isEditing, setIsEditing] = useState(false);
@@ -17,6 +18,7 @@ export const ProfilePage = () => {
   const [toastMsg, setToastMsg] = useState(null);
   const [toastType, setToastType] = useState('success');
   const [name, setName] = useState(user?.name || '');
+  const [employeeId, setEmployeeId] = useState(user?.employeeId || user?.officerId || '');
   const [department, setDepartment] = useState(user?.department || '');
   const [phone, setPhone] = useState(user?.phone || '');
 
@@ -24,10 +26,32 @@ export const ProfilePage = () => {
   const totalReports = myHistory.length;
   const sifCount = myHistory.filter(h => h.prediction === 'SIF').length;
 
-  const handleSave = (e) => {
+  const handleSave = async (e) => {
     e.preventDefault();
-    setUser({ ...user, name, department, phone });
-    setIsEditing(false);
+    try {
+      const updatedUser = await apiUpdateProfile({
+        name,
+        employeeId,
+        officerId: employeeId,
+        department,
+        phone,
+      });
+      if (updatedUser) {
+        setUser(updatedUser);
+      } else {
+        setUser({ ...user, name, employeeId, officerId: employeeId, department, phone });
+      }
+      if (refreshReports) refreshReports(false);
+      setToastMsg('Profile and Worker ID updated successfully!');
+      setToastType('success');
+      setIsEditing(false);
+    } catch (err) {
+      console.warn('Failed to save profile to database, updating local state:', err);
+      setUser({ ...user, name, employeeId, officerId: employeeId, department, phone });
+      setToastMsg('Profile updated locally.');
+      setToastType('success');
+      setIsEditing(false);
+    }
   };
 
     return (
@@ -116,15 +140,31 @@ export const ProfilePage = () => {
               </div>
             </div>
 
-            <div className="space-y-1">
-              <label className="font-bold text-slate-700 uppercase tracking-wider text-[10px]">Phone Number</label>
-              <input
-                type="text"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                placeholder="+91 98765 43210"
-                className="w-full px-4 py-3 rounded-xl bg-white/80 border border-slate-200 text-slate-900"
-              />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <label className="font-bold text-slate-700 uppercase tracking-wider text-[10px]">
+                  {isSafetyOfficer ? t('officer_id', 'Safety Officer ID') : t('employee_id', 'Worker / Employee ID')}
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={employeeId}
+                  onChange={(e) => setEmployeeId(e.target.value)}
+                  placeholder="e.g. EMP-9042"
+                  className="w-full px-4 py-3 rounded-xl bg-white/80 border border-slate-200 text-slate-900"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="font-bold text-slate-700 uppercase tracking-wider text-[10px]">Phone Number</label>
+                <input
+                  type="text"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder="+91 98765 43210"
+                  className="w-full px-4 py-3 rounded-xl bg-white/80 border border-slate-200 text-slate-900"
+                />
+              </div>
             </div>
 
             <button

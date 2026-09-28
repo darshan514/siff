@@ -163,7 +163,7 @@ export const PredictionProvider = ({ children }) => {
         setHistory(prev => {
           const dbIds = new Set(dbRecords.map(r => r.id));
           const localOnly = prev.filter(p => !dbIds.has(p.id) && !p.id.startsWith('OIL-PRED-'));
-          const merged = [...localOnly, ...dbRecords];
+          const merged = [...dbRecords, ...localOnly];
           saveToStorage(merged);
           return merged;
         });

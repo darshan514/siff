@@ -114,3 +114,24 @@ export const apiGetCurrentUser = async () => {
   }
 };
 
+export const apiUpdateProfile = async (updateData) => {
+  try {
+    const payload = {
+      name: updateData.name,
+      employeeId: updateData.employeeId || updateData.workerId || updateData.officerId,
+      officerId: updateData.officerId || updateData.employeeId,
+      department: updateData.department,
+      company: updateData.company,
+      designation: updateData.designation,
+      phone: updateData.phone,
+    };
+    const response = await apiClient.put('/api/me', payload);
+    if (response.data && response.data.user) {
+      return formatUserProfile(response.data.user);
+    }
+  } catch (err) {
+    console.error('Error updating user profile:', err);
+    throw new Error(err.response?.data?.detail || err.message || 'Failed to update user profile.');
+  }
+};
+

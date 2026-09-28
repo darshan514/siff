@@ -139,7 +139,7 @@ export const AutonomousHazopAgent = ({ initialObservation = '', initialLocation 
           <div className="space-y-1">
             <div className="flex items-center gap-2">
               <span className="px-2.5 py-0.5 rounded-md bg-[#FF5E3A] text-[11px] font-black tracking-wider uppercase">
-                LangGraph Cyclic AI
+                Autonomous SIF AI
               </span>
               <span className="px-2.5 py-0.5 rounded-md bg-white/10 text-[11px] font-semibold text-slate-300">
                 DGMS & OISD Regulatory Grounding
@@ -151,7 +151,7 @@ export const AutonomousHazopAgent = ({ initialObservation = '', initialLocation 
             </h2>
             <p className="text-xs md:text-sm text-slate-300 max-w-2xl font-medium">
               A multi-step autonomous agent that queries DGMS rulebooks, OISD standards, and Oil India maintenance logs, 
-              then executes a <strong>LangGraph cyclic critique-refinement graph</strong> to draft formal HAZOP action plans.
+              then executes an <strong>autonomous cyclic critique-refinement model</strong> to draft formal HAZOP action plans.
             </p>
           </div>
 
@@ -259,12 +259,12 @@ export const AutonomousHazopAgent = ({ initialObservation = '', initialLocation 
             {isRunning ? (
               <>
                 <RefreshCw className="w-4 h-4 animate-spin" />
-                <span>Running LangGraph Cycle...</span>
+                <span>Running Autonomous Investigation...</span>
               </>
             ) : (
               <>
                 <Sparkles className="w-4 h-4" />
-                <span>Run Autonomous Investigation & LangGraph HAZOP</span>
+                <span>Run Autonomous Investigation & HAZOP</span>
               </>
             )}
           </button>
@@ -277,7 +277,7 @@ export const AutonomousHazopAgent = ({ initialObservation = '', initialLocation 
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-extrabold text-slate-900 flex items-center gap-2">
               <GitFork className="w-4 h-4 text-[#FF5E3A]" />
-              LangGraph Cyclic Graph Execution Trace
+              Autonomous Cyclic Graph Execution Trace
             </h3>
             {result?.is_approved && (
               <span className="px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 font-extrabold text-xs flex items-center gap-1">

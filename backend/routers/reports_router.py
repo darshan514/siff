@@ -11,8 +11,14 @@ router = APIRouter()
 
 @router.post("", response_model=ReportResponse)
 def create_report(report_in: ReportCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    if current_user and report_in.employee_id and report_in.employee_id != "EMP-1001":
+        if not current_user.employee_id or current_user.employee_id == "EMP-1001":
+            current_user.employee_id = report_in.employee_id
+            db.commit()
+            db.refresh(current_user)
+
     new_report = Report(
-        user_id=current_user.id,
+        user_id=current_user.id if current_user else None,
         title=report_in.title,
         location=report_in.location,
         department=report_in.department,
